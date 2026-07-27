@@ -1,0 +1,7 @@
+# Development and test dependencies. Ticket: T-101 / T-112
+# `make test` runs pytest from the repo root over tests/ and api/tests/.
+
+-r requirements.txt
+
+pytest>=8.2
+httpx>=0.27          # FastAPI TestClient dependency
