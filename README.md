@@ -181,13 +181,13 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** —
 
-- [ ] `src/` and `api/` trees exist with the module layout described in CLAUDE.md.
-- [ ] Root `requirements.txt` (training side) and `requirements-dev.txt` (with
+- [x] `src/` and `api/` trees exist with the module layout described in CLAUDE.md.
+- [x] Root `requirements.txt` (training side) and `requirements-dev.txt` (with
       `pytest`) exist. `make test` runs without a separate manual install.
-- [ ] `.env` is created from `.env.original`; `make build` and `make down` succeed
+- [x] `.env` is created from `.env.original`; `make build` and `make down` succeed
       on a clean checkout.
-- [ ] `dataset/` and `models/` exist with `.gitkeep` and are gitignored.
-- [ ] Random seed constant defined once in `src/config.py` and imported everywhere.
+- [x] `dataset/` and `models/` exist with `.gitkeep` and are gitignored.
+- [x] Random seed constant defined once in `src/config.py` and imported everywhere.
 
 ### T-102 · `RESEARCH` · Literature review summary and schemas
 
@@ -217,16 +217,16 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** T-102, T-116 — **Artifact:** `notebooks/01_EDA.ipynb`
 
-- [ ] Row count, column dtypes, missing values and duplicate rate reported.
-- [ ] Distributions of both targets (`fare_amount`, duration) with skew quantified;
+- [x] Row count, column dtypes, missing values and duplicate rate reported.
+- [x] Distributions of both targets (`fare_amount`, duration) with skew quantified;
       explicit recommendation on whether to log-transform.
-- [ ] Outlier analysis: negative/zero fares, zero-distance trips, durations of 0 or
+- [x] Outlier analysis: negative/zero fares, zero-distance trips, durations of 0 or
       >6 h, `passenger_count = 0`, trips whose timestamps fall outside May 2022.
-- [ ] Top pickup/dropoff zones and the fare/duration profile of airport rate codes
+- [x] Top pickup/dropoff zones and the fare/duration profile of airport rate codes
       (`RatecodeID` 2 and 3).
-- [ ] Temporal profile: fare and duration by hour-of-day and day-of-week — the
+- [x] Temporal profile: fare and duration by hour-of-day and day-of-week — the
       evidence base for the temporal split in T-104.
-- [ ] Correlation analysis restricted to the allowed-feature list above.
+- [x] Correlation analysis restricted to the allowed-feature list above.
 
 ### T-104 · `DATA` · Preprocessing and data cleaning module
 

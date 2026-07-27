@@ -11,3 +11,4 @@ models/*.h5
 .DS_Store
 mynotes.md
 dataset/taxi_zones/
+*.xlsx
