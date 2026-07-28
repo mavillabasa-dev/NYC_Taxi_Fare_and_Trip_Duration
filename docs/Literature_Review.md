@@ -71,6 +71,8 @@ The table below maps predictive features identified in literature against the ac
 
 ## 3. End-to-End System Architecture Diagram
 
+![System Architecture Diagram](images/system_architecture_diagram.png)
+
 ```mermaid
 flowchart TD
     subgraph Phase1["Phase 1: Ingestion & Environment"]
