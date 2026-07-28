@@ -108,3 +108,21 @@ The Docker build context is set strictly to `./api`. The offline training code i
 1. Feature preprocessors (scalers, encoders, spatial centroid lookups).
 2. Expected feature column order.
 3. Model weights and prediction logic.
+
+---
+
+## 4. References & Data Sources
+
+### Papers & Technical Articles
+- [Fare and Duration Prediction: A Study of New York City Taxi Rides](https://cs229.stanford.edu/proj2016/report/AntoniadesFadaviFobaAmonJuniorNewYorkCityCabPricing-report.pdf)
+- [Towards Data Science - NYC Taxi Fare Prediction](https://towardsdatascience.com/nyc-taxi-fare-prediction-605159aa9c24)
+- [New York Yellow Taxi Demand Prediction Using Machine Learning](https://medium.com/analytics-vidhya/new-york-yellow-taxi-demand-prediction-using-machine-learning-fc697d20ff86)
+
+### TLC Data Dictionaries & MetaData
+- [TLC Trip Record User Guide (PDF)](https://www.nyc.gov/assets/tlc/downloads/pdf/trip_record_user_guide.pdf)
+- [Yellow Trips Data Dictionary (PDF)](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_yellow.pdf)
+
+### Taxi Zone Maps & Lookup Tables
+- [Taxi Zone Lookup Table (CSV)](https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv)
+- [Taxi Zone Shapefile (ZIP)](https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip)
+
