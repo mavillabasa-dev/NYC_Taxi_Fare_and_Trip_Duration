@@ -192,11 +192,12 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 ### T-102 · `RESEARCH` · Literature review summary and schemas
 
 **Depends on:** —
+**Artifact:** `docs/Literature_Review.md`
 
-- [ ] Short written summary (≤2 pages) of the reference papers and articles.
-- [ ] Documented list of features other authors found predictive, mapped onto the
+- [x] Short written summary (≤2 pages) of the reference papers and articles.
+- [x] Documented list of features other authors found predictive, mapped onto the
       columns actually present in the 2022 schema.
-- [ ] Architecture diagram of the end-to-end system (training → artifact → API → UI).
+- [x] Architecture diagram of the end-to-end system (training → artifact → API → UI).
 
 ### T-116 · `DATA` · Reproducible dataset ingestion
 
