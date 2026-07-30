@@ -141,24 +141,16 @@ I am William, and I will talk about phase one: the foundation.
 
 ### [SLIDE 13] Build the rails before the train
 
-Before any model, you need good rails.
-We have three tickets here.
+By foundation, I mean all the work we did before we start any training work.
 
-First, the repository.
-We have two separate Python trees. One trains the model. The other serves it.
-They never import each other.
+First, the repository structure.
+We have two separate Python trees. One trains the model. The other serves it. They never import each other.
 
 Second, research.
-We read what other people did, then we check which ideas still work with the 2022 data.
+We read papers about what other people did, then we check which ideas still work with the 2022 data.
 
-Third, the download.
-One command brings all three files. Run it twice, and it skips what is already there.
-If a file is broken, it fails loudly — not quietly.
-
-Now look at this diagram. This is the most important rule of our project.
-The training code is **not** inside the container.
-So the model file is the only bridge.
-Everything the model needs must travel **inside** that one file.
+Third, the download of the information, which will be done with our data ingestion script.
+For this script, we want it to be reproducible, so no matter where we run, we always end up with the same input data in all cases.
 
 → *Hand off:* "Keyneth will take you into the data."
 
