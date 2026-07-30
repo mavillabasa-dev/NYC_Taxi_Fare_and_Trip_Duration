@@ -1,0 +1,1974 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Taxi Fare &amp; Trip Duration Prediction — Pre-Demo</title>
+<meta name="description" content="Pre-demo presentation: predicting NYC yellow taxi fare and trip duration from information available at the start of the ride.">
+
+<!-- Fonts. Zodiak = display serif (headlines), Supreme = grotesk (body + all
+     figures), JetBrains Mono = technical labels, ticket IDs, column names. -->
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=zodiak@400,700,800&f[]=supreme@400,500,700,800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+/* ===========================================================================
+   1. THEME
+   Every colour and size lives here. Change these to re-skin the whole deck.
+   The palette was validated for contrast against the #0B0A0C slide surface:
+   all marks clear 3:1, all text clears WCAG AA. See ppt/README.md.
+   =========================================================================== */
+:root {
+    /* --- surfaces --- */
+    --ink:        #0B0A0C;      /* slide surface */
+    --ink-2:      #0F0E11;      /* alternate slide surface (dividers) */
+    --panel:      #141216;      /* raised card */
+    --panel-2:    #1A171C;      /* raised card, second level */
+    --rule:       #332F36;      /* hairline / gridline — deliberately recessive */
+
+    /* --- gold --- */
+    --gold:       #F0BE4A;      /* primary accent, brightest mark */
+    --gold-deep:  #B98C2C;      /* secondary mark */
+    --gold-dim:   #8A6821;      /* de-emphasised mark */
+    --taxi:       #FFC72C;      /* NYC taxi yellow — highlights only */
+    --gold-wash:  rgba(240,190,74,.10);
+    --gold-edge:  rgba(240,190,74,.26);
+
+    /* --- ink on dark --- */
+    --cream:      #F2ECE0;      /* primary text */
+    --text-2:     #A9A294;      /* secondary text */
+    --text-3:     #7C7568;      /* muted text, captions, axis ticks */
+
+    /* --- type (authored at the 1920x1080 stage size) --- */
+    --font-display: 'Zodiak', 'Iowan Old Style', Georgia, serif;
+    --font-sans:    'Supreme', 'Helvetica Neue', Arial, sans-serif;
+    --font-mono:    'JetBrains Mono', Consolas, monospace;
+
+    /* --- motion --- */
+    --ease:  cubic-bezier(.16,1,.3,1);
+    --dur:   .72s;
+
+    /* --- stage geometry --- */
+    --pad-x: 108px;
+    --pad-t: 74px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================================================
+   2. FIXED 16:9 STAGE — MANDATORY BASE STYLES
+   Verbatim from frontend-slides/viewport-base.css. Slides are authored at
+   1920x1080 and the whole stage is scaled by one transform. Never reflow
+   slide content per device; letterboxing is correct behaviour.
+   =========================================================================== */
+
+/* 1. Lock the browser viewport */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+/* 2. Full-window deck viewport */
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+/* 3. Fixed 16:9 design canvas.
+   JavaScript sets transform: translate(...) scale(...). */
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--slide-bg, #fff);
+}
+
+/* 4. Slides stack inside the fixed stage.
+   Content must be laid out at 1920x1080, not reflowed per device. */
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+
+/* 5. Keep media inside authored slide bounds */
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* 6. Presentation chrome stays outside the slide design system */
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+
+/* 7. Print one fixed-size slide per page */
+@media print {
+    html,
+    body {
+        width: 1920px;
+        height: auto;
+        overflow: visible;
+        background: #fff;
+    }
+
+    .deck-viewport {
+        position: static;
+        overflow: visible;
+        background: #fff;
+    }
+
+    .deck-stage {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none !important;
+        background: none;
+    }
+
+    .slide {
+        position: relative;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 1920px;
+        height: 1080px;
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .slide:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .deck-controls {
+        display: none !important;
+    }
+}
+
+/* 8. Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+}
+
+/* ===========================================================================
+   3. STAGE SKIN
+   Bind the base stage variables to this deck's palette and lay in the
+   atmosphere: a faint Manhattan street grid plus a low gold bloom, so slides
+   have depth instead of a flat black fill.
+   =========================================================================== */
+:root { --stage-bg: #060507; --slide-bg: var(--ink); }
+
+.slide {
+    font-family: var(--font-sans);
+    color: var(--cream);
+    /* street grid — barely there, gives the black a texture */
+    background-image:
+        linear-gradient(rgba(240,190,74,.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240,190,74,.028) 1px, transparent 1px);
+    background-size: 96px 96px, 96px 96px;
+}
+
+/* A single warm bloom per slide. Placement varies by slide class so the deck
+   does not feel stamped from one mould. */
+.slide::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(70% 55% at 88% 8%, rgba(240,190,74,.10) 0%, transparent 62%);
+}
+.slide.bloom-b::before {
+    background: radial-gradient(78% 60% at 12% 92%, rgba(240,190,74,.11) 0%, transparent 60%);
+}
+.slide.bloom-c::before {
+    background: radial-gradient(90% 70% at 50% 118%, rgba(240,190,74,.16) 0%, transparent 62%);
+}
+
+/* ===========================================================================
+   4. SIGNATURE MOTIFS
+   The taxi checker is this deck's recurring graphic device. It appears as a
+   rule under headings, as a divider band, and as the title-slide separator.
+   =========================================================================== */
+.checker {
+    height: 22px;
+    background-image:
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%, transparent 75%, var(--gold) 75%),
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%, transparent 75%, var(--gold) 75%);
+    background-size: 22px 22px;
+    background-position: 0 0, 11px 11px;
+}
+.checker.sm { height: 14px; background-size: 14px 14px; background-position: 0 0, 7px 7px; }
+
+/* The medallion — a taxi licence disc. Carries phase numbers on dividers. */
+.medallion {
+    width: 168px; height: 168px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background:
+        radial-gradient(circle at 34% 28%, rgba(240,190,74,.30), transparent 58%),
+        var(--panel);
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 0 12px rgba(240,190,74,.07), 0 0 64px rgba(240,190,74,.16);
+    position: relative;
+}
+.medallion::after {                 /* notched outer ring, like a stamped disc */
+    content: "";
+    position: absolute; inset: -13px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(var(--gold-deep) 0 2.2deg, transparent 2.2deg 7.5deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 68px, #000 68px 71px, transparent 71px);
+            mask: radial-gradient(circle, transparent 0 68px, #000 68px 71px, transparent 71px);
+    opacity: .75;
+}
+.medallion span {
+    font-family: var(--font-display);
+    font-size: 74px; font-weight: 700; color: var(--gold);
+    line-height: 1;
+}
+
+/* Skyline silhouette — title and closing only, where it acts as the mark. */
+.skyline-wrap {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 236px; color: var(--gold-dim); opacity: .46;
+    pointer-events: none;
+    /* Fade to a low floor rather than to nothing, so the roofline and spires
+       stay crisp instead of dissolving into the background. */
+    -webkit-mask-image: linear-gradient(to top, #000 12%, rgba(0,0,0,.42) 82%, transparent 100%);
+            mask-image: linear-gradient(to top, #000 12%, rgba(0,0,0,.42) 82%, transparent 100%);
+}
+.skyline-wrap svg { width: 100%; height: 100%; max-height: none; display: block; }
+
+/* Scrim: the footer sits over the skyline, so darken the band behind it or
+   the team names disappear into the buildings. */
+.skyline-wrap::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 132px;
+    background: linear-gradient(to top, var(--ink) 22%, rgba(11,10,12,.55) 62%, transparent);
+}
+
+/* ===========================================================================
+   5. TYPOGRAPHY & SLIDE FURNITURE
+   =========================================================================== */
+.pad {
+    position: absolute; inset: 0;
+    padding: var(--pad-t) var(--pad-x) 104px;
+    display: flex; flex-direction: column;
+}
+
+.eyebrow {
+    font-family: var(--font-mono);
+    font-size: 20px; font-weight: 500;
+    letter-spacing: .30em; text-transform: uppercase;
+    color: var(--gold-deep);
+}
+
+h2 {
+    font-family: var(--font-display);
+    font-size: 76px; font-weight: 700; line-height: 1.04;
+    letter-spacing: -.012em;
+    color: var(--cream);
+    margin-top: 18px;
+}
+h2 em { font-style: normal; color: var(--gold); }
+
+/* the checker rule that sits under every section heading */
+.shead { flex: none; }
+.shead .checker { width: 132px; margin-top: 26px; }
+
+/* The body owns everything under the heading. Centring it vertically means a
+   slide with less content reads as deliberately airy instead of top-heavy with
+   a dead band at the bottom. Slides that need to hug the top override this. */
+.sbody {
+    flex: 1; margin-top: 42px; min-height: 0;
+    display: flex; flex-direction: column; justify-content: center;
+}
+
+.sfoot {
+    position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: 42px;
+    display: flex; align-items: center; gap: 20px;
+    font-family: var(--font-mono); font-size: 17px;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--text-3);
+}
+.sfoot .line { flex: 1; height: 1px; background: var(--rule); }
+
+p { font-size: 27px; line-height: 1.55; color: var(--text-2); }
+strong { color: var(--cream); font-weight: 700; }
+.mono { font-family: var(--font-mono); }
+
+/* ===========================================================================
+   6. COMPONENTS
+   =========================================================================== */
+
+/* --- stat tile / KPI row ------------------------------------------------ */
+.kpis { display: grid; gap: 22px; }
+.kpi {
+    border-left: 3px solid var(--gold-deep);
+    padding: 6px 0 6px 26px;
+}
+.kpi .v {
+    font-family: var(--font-sans);       /* figures stay in the sans, never the serif */
+    font-size: 62px; font-weight: 700; line-height: 1;
+    color: var(--cream); letter-spacing: -.02em;
+}
+.kpi .v small { font-size: 34px; font-weight: 500; color: var(--gold); }
+.kpi .l {
+    margin-top: 12px; font-size: 20px; line-height: 1.4;
+    color: var(--text-3); letter-spacing: .01em;
+}
+
+/* --- card --------------------------------------------------------------- */
+.card {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 34px 34px 32px;
+    position: relative;
+    overflow: hidden;
+}
+.card::after {                       /* a gold seam along the top edge */
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, var(--gold), transparent 78%);
+}
+.card h3 {
+    font-family: var(--font-sans);
+    font-size: 30px; font-weight: 700; color: var(--cream);
+    letter-spacing: -.005em; margin-bottom: 14px;
+}
+.card p { font-size: 23px; line-height: 1.52; color: var(--text-2); }
+
+/* A card that stretches to fill a full-height grid. Without this the card grows
+   but its words stay pinned to the top, leaving a hollow box. Here the icon
+   holds the top edge and the words drop to the baseline, so the empty space
+   becomes deliberate negative space instead of a gap. */
+.card.tall { display: flex; flex-direction: column; }
+.card.tall > h3 { margin-top: auto; }
+.card.tall > svg { flex: none; }
+
+/* the small ticket badge that labels a card: T-104 · DATA */
+.tick {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 16px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 16px;
+}
+.tick b { font-weight: 700; }
+.tick i { font-style: normal; color: var(--text-3); }
+
+/* --- chips (column names, tech tags) ------------------------------------ */
+.chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.chip {
+    font-family: var(--font-mono); font-size: 19px;
+    padding: 8px 14px; border-radius: 3px;
+    background: var(--gold-wash); border: 1px solid var(--gold-edge);
+    color: var(--gold);
+}
+.chip.off {
+    background: rgba(255,255,255,.02); border-color: var(--rule);
+    color: var(--text-3); text-decoration: line-through;
+    text-decoration-color: rgba(124,117,104,.6);
+}
+
+/* --- generic two-column split -------------------------------------------
+   Height is auto on purpose: the grid rows size to the tallest column and the
+   body centres the result. Stretching to 100% just inflates the cards and
+   leaves their text stranded at the top. */
+.split { display: grid; gap: 46px; }
+.split.c2 { grid-template-columns: 1fr 1fr; }
+
+/* --- the flow / architecture diagram vocabulary -------------------------- */
+.node {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 20px 22px; text-align: left;
+}
+.node.hot { border-color: var(--gold); background: var(--panel-2); }
+.node .nt {
+    font-family: var(--font-mono); font-size: 15px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--gold-deep); margin-bottom: 9px;
+}
+.node .nb { font-size: 22px; font-weight: 500; color: var(--cream); line-height: 1.32; }
+.node .ns { font-size: 18px; color: var(--text-3); margin-top: 7px; line-height: 1.35; }
+
+/* --- divider slides ----------------------------------------------------- */
+.divider { background: var(--ink-2); }
+.divider .pad { justify-content: center; align-items: flex-start; }
+.divider h1 {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: 148px; line-height: .96; letter-spacing: -.022em;
+    color: var(--cream); margin: 34px 0 0;
+}
+.divider .who {
+    margin-top: 34px; font-size: 30px; color: var(--text-2);
+}
+.divider .who b { color: var(--gold); font-weight: 700; }
+
+/* ===========================================================================
+   7. FIGURES (charts generated by ppt/tools/build_figures.py)
+   Text inside the SVGs inherits these classes.
+   =========================================================================== */
+.fig { width: 100%; height: auto; max-height: none; display: block; }
+.fig-tick, .fig-axis, .fig-note, .fig-legend, .fig-val { font-family: var(--font-sans); }
+.fig-tick   { font-size: 19px; fill: var(--text-3); }
+.fig-axis   { font-size: 16px; fill: var(--text-3); letter-spacing: .22em; }
+.fig-note   { font-size: 19px; fill: var(--text-2); }
+.fig-legend { font-size: 21px; fill: var(--text-2); }
+.fig-val    { font-size: 30px; font-weight: 700; fill: var(--cream); }
+
+/* diagram text inside hand-built SVGs */
+.dg-l  { font-family: var(--font-mono); font-size: 15px; letter-spacing: .18em; fill: var(--gold-deep); }
+.dg-t  { font-family: var(--font-sans); font-size: 21px; font-weight: 500; fill: var(--cream); }
+.dg-s  { font-family: var(--font-sans); font-size: 17px; fill: var(--text-3); }
+.dg-h  { font-family: var(--font-mono); font-size: 16px; letter-spacing: .22em; fill: var(--text-3); }
+
+/* ===========================================================================
+   8. ANIMATION
+   One orchestrated reveal per slide. --i sets the position in the stagger.
+   =========================================================================== */
+.reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    transition-delay: calc(var(--i, 0) * 85ms);
+}
+.slide.visible .reveal { opacity: 1; transform: none; }
+
+.reveal-blur {
+    opacity: 0; filter: blur(14px);
+    transition: opacity .9s var(--ease), filter .9s var(--ease);
+    transition-delay: calc(var(--i, 0) * 85ms);
+}
+.slide.visible .reveal-blur { opacity: 1; filter: none; }
+
+/* the checker rule wipes in from the left */
+.reveal-wipe {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path .85s var(--ease);
+    transition-delay: calc(var(--i, 0) * 85ms);
+}
+.slide.visible .reveal-wipe { clip-path: inset(0 0 0 0); }
+
+/* ===========================================================================
+   9. DECK CHROME — lives outside the stage, so it never scales with slides
+   =========================================================================== */
+.progress {
+    position: fixed; left: 0; top: 0; height: 3px; z-index: 1000;
+    background: linear-gradient(90deg, var(--gold-deep), var(--taxi));
+    width: 0; transition: width .45s var(--ease);
+}
+.counter {
+    position: fixed; right: 26px; bottom: 20px; z-index: 1000;
+    font-family: var(--font-mono); font-size: 13px; letter-spacing: .22em;
+    color: #5d5750;
+}
+.counter b { color: var(--gold); font-weight: 500; }
+/* Top-centre is the one strip that is empty on every slide — the eyebrow sits
+   left, the counter bottom-right — so the hint never lands on content. */
+.hint {
+    position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 1000;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .16em;
+    color: #4a4441; transition: opacity .6s;
+}
+
+/* inline editing affordance (hidden until hovered or E is pressed) */
+.edit-hotzone { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 10000; }
+.edit-toggle {
+    position: fixed; top: 18px; left: 18px; z-index: 10001;
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--gold-edge);
+    color: var(--gold); font-size: 17px; cursor: pointer;
+    opacity: 0; pointer-events: none; transition: opacity .3s ease;
+}
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+.edit-toggle.active { background: var(--gold); color: var(--ink); }
+[contenteditable="true"] { outline: 1px dashed var(--gold-edge); outline-offset: 4px; }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage">
+
+<!-- =======================================================================
+     SLIDE 1 — TITLE
+     Speaker: Keyneth Lara
+     ======================================================================= -->
+<section class="slide title-slide active bloom-c" aria-label="Title">
+    <div class="pad">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <span class="eyebrow reveal" style="--i:0">Anyone AI &middot; ML Developer Career</span>
+            <span class="eyebrow reveal" style="--i:0;color:var(--text-3)">Pre-Demo</span>
+        </div>
+
+        <div style="margin-top:88px;position:relative;z-index:2">
+            <div class="mono reveal" style="--i:1;font-size:21px;letter-spacing:.34em;color:var(--gold);text-transform:uppercase">
+                New York City &middot; Yellow Taxi &middot; May 2022
+            </div>
+            <h1 class="reveal-blur" style="--i:2;font-family:var(--font-display);font-weight:800;font-size:158px;line-height:.92;letter-spacing:-.028em;margin-top:26px;color:var(--cream)">
+                How much?<br><span style="color:var(--gold)">How long?</span>
+            </h1>
+            <div class="checker reveal-wipe" style="--i:4;width:300px;margin-top:44px"></div>
+            <p class="reveal" style="--i:5;margin-top:38px;font-size:38px;color:var(--cream);font-weight:500">
+                NYC Taxi Fare &amp; Trip Duration Prediction
+            </p>
+            <p class="reveal" style="--i:6;margin-top:12px;font-size:26px;max-width:900px">
+                Two numbers, predicted the moment the door closes.
+            </p>
+        </div>
+    </div>
+
+    <div class="skyline-wrap"><!--SKYLINE--><svg viewBox="0 0 1866 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" class="skyline" aria-hidden="true"><g fill="currentColor"><path d="M0,220L0,200L0,150L46,150L46,132L92,132L92,162L120,162L120,105L168,105L168,122L196,122L196,80L238,80L238,144L262,144L262,96L300,96L300,50L318,50L318,114L352,114L352,72L396,72L396,136L424,136L424,58L470,58L470,100L500,100L500,140L534,140L534,86L580,86L580,124L604,124L604,40L652,40L652,102L686,102L686,68L724,68L724,134L760,134L760,90L800,90L800,146L826,146L826,48L874,48L874,108L906,108L906,76L948,76L948,140L980,140L980,62L1024,62L1024,126L1052,126L1052,32L1098,32L1098,98L1132,98L1132,66L1176,66L1176,132L1208,132L1208,84L1252,84L1252,144L1280,144L1280,54L1326,54L1326,112L1360,112L1360,74L1404,74L1404,138L1436,138L1436,60L1480,60L1480,106L1512,106L1512,42L1558,42L1558,120L1592,120L1592,78L1636,78L1636,148L1666,148L1666,72L1712,72L1712,110L1744,110L1744,88L1788,88L1788,128L1820,128L1820,66L1866,66L1866,200L1866,220Z"/><path d="M306,50L309,4L312,50Z"/><path d="M625,40L628,-6L631,40Z"/><path d="M1072,32L1075,-14L1078,32Z"/><path d="M1532,42L1535,-4L1538,42Z"/></g><g fill="#0B0A0C" opacity=".55"><rect x="12" y="148" width="4" height="7"/><rect x="46" y="122" width="4" height="7"/><rect x="148" y="174" width="4" height="7"/><rect x="182" y="148" width="4" height="7"/><rect x="216" y="122" width="4" height="7"/><rect x="318" y="174" width="4" height="7"/><rect x="352" y="148" width="4" height="7"/><rect x="386" y="122" width="4" height="7"/><rect x="488" y="174" width="4" height="7"/><rect x="522" y="148" width="4" height="7"/><rect x="556" y="122" width="4" height="7"/><rect x="658" y="174" width="4" height="7"/><rect x="692" y="148" width="4" height="7"/><rect x="726" y="122" width="4" height="7"/><rect x="828" y="174" width="4" height="7"/><rect x="862" y="148" width="4" height="7"/><rect x="896" y="122" width="4" height="7"/><rect x="998" y="174" width="4" height="7"/><rect x="1032" y="148" width="4" height="7"/><rect x="1066" y="122" width="4" height="7"/><rect x="1168" y="174" width="4" height="7"/><rect x="1202" y="148" width="4" height="7"/><rect x="1236" y="122" width="4" height="7"/><rect x="1338" y="174" width="4" height="7"/><rect x="1372" y="148" width="4" height="7"/><rect x="1406" y="122" width="4" height="7"/><rect x="1508" y="174" width="4" height="7"/><rect x="1542" y="148" width="4" height="7"/><rect x="1576" y="122" width="4" height="7"/><rect x="1678" y="174" width="4" height="7"/><rect x="1712" y="148" width="4" height="7"/><rect x="1746" y="122" width="4" height="7"/><rect x="1848" y="174" width="4" height="7"/></g></svg><!--/SKYLINE--></div>
+
+    <div class="sfoot" style="z-index:3">
+        <span>Keyneth Lara</span><span>William Vera</span><span>Marcos Villabasa</span>
+        <span>Mauricio Mora</span><span>N&eacute;stor Mamani</span>
+        <span style="color:var(--gold-deep)">Franco Diosquez &middot; Lead</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 2 — THE HOOK
+     Speaker: Keyneth Lara. One hero figure, nothing competing with it.
+     ======================================================================= -->
+<section class="slide bloom-b" aria-label="Motivation: the hook">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The motivation</span>
+        </div>
+        <div class="sbody" style="display:flex;flex-direction:column;justify-content:center">
+            <div class="reveal-blur" style="--i:1;font-family:var(--font-sans);font-size:264px;font-weight:800;line-height:.86;letter-spacing:-.035em;color:var(--gold)">
+                115,747
+            </div>
+            <p class="reveal" style="--i:3;font-size:52px;color:var(--cream);margin-top:34px;font-weight:500;line-height:1.2">
+                yellow-cab rides every single day in New York.
+            </p>
+            <div class="checker reveal-wipe" style="--i:4;width:190px;margin-top:40px"></div>
+            <p class="reveal" style="--i:5;font-size:44px;margin-top:36px;max-width:1250px;line-height:1.34;color:var(--cream)">
+                Not one of them starts with a price.
+            </p>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Measured</span><span class="line"></span>
+        <span>TLC yellow taxi trip records &middot; 3,588,295 trips &divide; 31 days</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 3 — SCALE
+     Speaker: Keyneth Lara. KPI row + the measured hour-of-day demand curve.
+     ======================================================================= -->
+<section class="slide" aria-label="Motivation: scale">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Why it matters &middot; 01</span>
+            <h2 class="reveal" style="--i:1">A city that runs on <em>the meter</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="kpis reveal" style="--i:3;grid-template-columns:repeat(4,1fr)">
+                <div class="kpi"><div class="v">3.59<small>M</small></div><div class="l">trips in a single month<br>(May 2022)</div></div>
+                <div class="kpi"><div class="v">13,600</div><div class="l">yellow medallions<br>licensed in the city</div></div>
+                <div class="kpi"><div class="v"><small>$</small>1.6<small>B</small></div><div class="l">a year in yellow-cab fares<br>(2019, pre-pandemic)</div></div>
+                <div class="kpi"><div class="v">265</div><div class="l">taxi zones across<br>the five boroughs</div></div>
+            </div>
+
+            <div class="reveal" style="--i:5;margin-top:44px">
+                <!--FIG_HOURLY--><svg viewBox="0 0 1180 380" xmlns="http://www.w3.org/2000/svg" class="fig" role="img" aria-label="Average yellow-taxi pickups by hour of day in May 2022. The peak is 8,171 pickups at 6 PM; the low is 637 at 4 AM."><line x1="92" y1="300.0" x2="1156" y2="300.0" stroke="#332F36" stroke-width="1"/><text x="76" y="307.0" text-anchor="end" class="fig-tick">0</text><line x1="92" y1="215.3" x2="1156" y2="215.3" stroke="#332F36" stroke-width="1"/><text x="76" y="222.3" text-anchor="end" class="fig-tick">3,000</text><line x1="92" y1="130.7" x2="1156" y2="130.7" stroke="#332F36" stroke-width="1"/><text x="76" y="137.7" text-anchor="end" class="fig-tick">6,000</text><line x1="92" y1="46.0" x2="1156" y2="46.0" stroke="#332F36" stroke-width="1"/><text x="76" y="53.0" text-anchor="end" class="fig-tick">9,000</text><path d="M102.2,300.0 V211.3 Q102.2,207.3 106.2,207.3 H122.2 Q126.2,207.3 126.2,211.3 V300.0 Z" fill="#B98C2C"/><path d="M146.5,300.0 V244.1 Q146.5,240.1 150.5,240.1 H166.5 Q170.5,240.1 170.5,244.1 V300.0 Z" fill="#B98C2C"/><path d="M190.8,300.0 V265.2 Q190.8,261.2 194.8,261.2 H210.8 Q214.8,261.2 214.8,265.2 V300.0 Z" fill="#B98C2C"/><path d="M235.2,300.0 V278.8 Q235.2,274.8 239.2,274.8 H255.2 Q259.2,274.8 259.2,278.8 V300.0 Z" fill="#B98C2C"/><path d="M279.5,300.0 V286.0 Q279.5,282.0 283.5,282.0 H299.5 Q303.5,282.0 303.5,286.0 V300.0 Z" fill="#F0BE4A"/><path d="M323.8,300.0 V281.9 Q323.8,277.9 327.8,277.9 H343.8 Q347.8,277.9 347.8,281.9 V300.0 Z" fill="#B98C2C"/><path d="M368.2,300.0 V250.5 Q368.2,246.5 372.2,246.5 H388.2 Q392.2,246.5 392.2,250.5 V300.0 Z" fill="#B98C2C"/><path d="M412.5,300.0 V207.5 Q412.5,203.5 416.5,203.5 H432.5 Q436.5,203.5 436.5,207.5 V300.0 Z" fill="#B98C2C"/><path d="M456.8,300.0 V180.7 Q456.8,176.7 460.8,176.7 H476.8 Q480.8,176.7 480.8,180.7 V300.0 Z" fill="#B98C2C"/><path d="M501.2,300.0 V164.7 Q501.2,160.7 505.2,160.7 H521.2 Q525.2,160.7 525.2,164.7 V300.0 Z" fill="#B98C2C"/><path d="M545.5,300.0 V148.9 Q545.5,144.9 549.5,144.9 H565.5 Q569.5,144.9 569.5,148.9 V300.0 Z" fill="#B98C2C"/><path d="M589.8,300.0 V132.3 Q589.8,128.3 593.8,128.3 H609.8 Q613.8,128.3 613.8,132.3 V300.0 Z" fill="#B98C2C"/><path d="M634.2,300.0 V120.1 Q634.2,116.1 638.2,116.1 H654.2 Q658.2,116.1 658.2,120.1 V300.0 Z" fill="#B98C2C"/><path d="M678.5,300.0 V118.6 Q678.5,114.6 682.5,114.6 H698.5 Q702.5,114.6 702.5,118.6 V300.0 Z" fill="#B98C2C"/><path d="M722.8,300.0 V106.1 Q722.8,102.1 726.8,102.1 H742.8 Q746.8,102.1 746.8,106.1 V300.0 Z" fill="#B98C2C"/><path d="M767.2,300.0 V102.0 Q767.2,98.0 771.2,98.0 H787.2 Q791.2,98.0 791.2,102.0 V300.0 Z" fill="#B98C2C"/><path d="M811.5,300.0 V102.8 Q811.5,98.8 815.5,98.8 H831.5 Q835.5,98.8 835.5,102.8 V300.0 Z" fill="#B98C2C"/><path d="M855.8,300.0 V87.4 Q855.8,83.4 859.8,83.4 H875.8 Q879.8,83.4 879.8,87.4 V300.0 Z" fill="#B98C2C"/><path d="M900.2,300.0 V73.4 Q900.2,69.4 904.2,69.4 H920.2 Q924.2,69.4 924.2,73.4 V300.0 Z" fill="#F0BE4A"/><path d="M944.5,300.0 V93.7 Q944.5,89.7 948.5,89.7 H964.5 Q968.5,89.7 968.5,93.7 V300.0 Z" fill="#B98C2C"/><path d="M988.8,300.0 V125.1 Q988.8,121.1 992.8,121.1 H1008.8 Q1012.8,121.1 1012.8,125.1 V300.0 Z" fill="#B98C2C"/><path d="M1033.2,300.0 V130.3 Q1033.2,126.3 1037.2,126.3 H1053.2 Q1057.2,126.3 1057.2,130.3 V300.0 Z" fill="#B98C2C"/><path d="M1077.5,300.0 V144.5 Q1077.5,140.5 1081.5,140.5 H1097.5 Q1101.5,140.5 1101.5,144.5 V300.0 Z" fill="#B98C2C"/><path d="M1121.8,300.0 V173.3 Q1121.8,169.3 1125.8,169.3 H1141.8 Q1145.8,169.3 1145.8,173.3 V300.0 Z" fill="#B98C2C"/><text x="912.2" y="43.4" text-anchor="middle" class="fig-val">8,171</text><text x="912.2" y="61.4" text-anchor="middle" class="fig-note">6 PM peak</text><text x="291.5" y="256.0" text-anchor="middle" class="fig-val">637</text><text x="291.5" y="274.0" text-anchor="middle" class="fig-note">4 AM low</text><line x1="92" y1="300" x2="1156" y2="300" stroke="#332F36" stroke-width="1"/><text x="114.2" y="330" text-anchor="middle" class="fig-tick">00</text><text x="380.2" y="330" text-anchor="middle" class="fig-tick">06</text><text x="646.2" y="330" text-anchor="middle" class="fig-tick">12</text><text x="912.2" y="330" text-anchor="middle" class="fig-tick">18</text><text x="1133.8" y="330" text-anchor="middle" class="fig-tick">23</text><text x="624.0" y="362" text-anchor="middle" class="fig-axis">HOUR OF DAY</text></svg><!--/FIG_HOURLY-->
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Average pickups per hour, May 2022</span><span class="line"></span>
+        <span>Demand swings 13&times; between 4 AM and 6 PM</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 4 — WHY NOW
+     Speaker: Keyneth Lara. The regulatory shift that makes this a product,
+     not an exercise.
+     ======================================================================= -->
+<section class="slide" aria-label="Motivation: why now">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Why it matters &middot; 02</span>
+            <h2 class="reveal" style="--i:1">The rules <em>just changed</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="split c2">
+                <div class="card reveal" style="--i:3">
+                    <div class="tick"><b>Then</b> <i>the meter decides</i></div>
+                    <h3>You find out at the end</h3>
+                    <p>The meter runs while you sit in traffic. The number is only final when you have already arrived &mdash; and there is nothing to compare it against.</p>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>Now</b> <i>upfront pricing</i></div>
+                    <h3>A binding quote before you get in</h3>
+                    <p>NYC&rsquo;s Flex Fare rules let yellow cabs quote a fixed fare through an e-hail app &mdash; the same promise Uber and Lyft have always made.</p>
+                </div>
+            </div>
+
+            <div class="reveal" style="--i:6;margin-top:52px;border-left:3px solid var(--gold);padding:8px 0 8px 30px">
+                <p style="font-family:var(--font-display);font-size:52px;line-height:1.18;color:var(--cream)">
+                    To quote a price <em style="font-style:normal;color:var(--gold)">before</em> the ride,<br>you have to predict it.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>NYC Taxi &amp; Limousine Commission</span><span class="line"></span>
+        <span>Flex Fare / upfront pricing</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 5 — PROBLEM STATEMENT
+     Speaker: Keyneth Lara. The t=0 constraint, drawn as a timeline. This is
+     the slide that defines the whole project.
+     ======================================================================= -->
+<section class="slide" aria-label="Problem statement">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The problem</span>
+            <h2 class="reveal" style="--i:1">Predict at the door &mdash; <em>not at the destination</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <!-- timeline -->
+            <div class="reveal" style="--i:3">
+                <svg viewBox="0 0 1704 176" class="fig" role="img" aria-label="Timeline: at pickup, time zero, the model must predict fare and duration. The dropoff, and everything measured at it, happens later and cannot be used as input.">
+                    <line x1="34" y1="96" x2="1670" y2="96" stroke="#332F36" stroke-width="2"/>
+                    <!-- the window we are allowed to use -->
+                    <rect x="34" y="60" width="470" height="72" rx="4" fill="rgba(240,190,74,.10)" stroke="#F0BE4A" stroke-width="1.5"/>
+                    <text x="58" y="90" class="dg-l">PICKUP &middot; T = 0</text>
+                    <text x="58" y="119" class="dg-t">everything we are allowed to know</text>
+
+                    <circle cx="504" cy="96" r="11" fill="#F0BE4A" stroke="#0B0A0C" stroke-width="4"/>
+                    <text x="536" y="90" class="dg-l" style="fill:#F0BE4A">WE PREDICT HERE</text>
+                    <text x="536" y="119" class="dg-t">fare_amount &nbsp;&middot;&nbsp; duration_minutes</text>
+
+                    <!-- the forbidden window -->
+                    <rect x="1120" y="60" width="550" height="72" rx="4" fill="rgba(255,255,255,.02)" stroke="#332F36" stroke-width="1.5" stroke-dasharray="7 6"/>
+                    <text x="1146" y="90" class="dg-l" style="fill:#7C7568">DROPOFF &middot; T = END</text>
+                    <text x="1146" y="119" class="dg-s">measured after the fact &mdash; never an input</text>
+                    <circle cx="1120" cy="96" r="8" fill="#332F36"/>
+                    <path d="M1690,96 L1666,86 L1666,106 Z" fill="#332F36"/>
+                </svg>
+            </div>
+
+            <div class="split c2" style="margin-top:78px;height:auto">
+                <div class="reveal" style="--i:5">
+                    <div class="eyebrow" style="color:var(--gold);font-size:22px">Known at t = 0 &mdash; usable</div>
+                    <div class="chips" style="margin-top:26px;gap:11px">
+                        <span class="chip" style="font-size:22px;padding:12px 18px">tpep_pickup_datetime</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">PULocationID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">DOLocationID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">passenger_count</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">RatecodeID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">VendorID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">trip_distance</span>
+                    </div>
+                </div>
+                <div class="reveal" style="--i:6">
+                    <div class="eyebrow" style="font-size:22px">What we are asked for</div>
+                    <div style="display:flex;gap:22px;margin-top:26px">
+                        <div class="node hot" style="flex:1;padding:26px 26px">
+                            <div class="nt">Target 01</div>
+                            <div class="nb" style="font-size:27px">fare_amount</div>
+                            <div class="ns" style="font-size:19px">in dollars</div>
+                        </div>
+                        <div class="node hot" style="flex:1;padding:26px 26px">
+                            <div class="nt">Target 02</div>
+                            <div class="nb" style="font-size:27px">duration_minutes</div>
+                            <div class="ns" style="font-size:19px">dropoff &minus; pickup</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Two targets</span><span class="line"></span>
+        <span>One moment in time</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 6 — WHO IT SERVES
+     Speaker: Keyneth Lara.
+     ======================================================================= -->
+<section class="slide" aria-label="Who it serves">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The value</span>
+            <h2 class="reveal" style="--i:1">One prediction, <em>three winners</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:36px;height:100%;max-height:440px">
+                <div class="card tall reveal" style="--i:3">
+                    <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#F0BE4A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21a8 8 0 0 1 16 0"/>
+                    </svg>
+                    <h3 style="font-size:36px">The passenger</h3>
+                    <p style="font-size:25px">Knows the cost before the door closes. Can compare, plan the trip, and trust the number on the screen.</p>
+                </div>
+                <div class="card tall reveal" style="--i:4">
+                    <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#F0BE4A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 15h18l-1.6-5.2A3 3 0 0 0 16.5 7.6h-9A3 3 0 0 0 4.6 9.8Z"/>
+                        <path d="M3 15v3h3v-3M18 15v3h3v-3M8 7.6V5h8v2.6"/>
+                    </svg>
+                    <h3 style="font-size:36px">The driver</h3>
+                    <p style="font-size:25px">Two rides waiting, one choice. Sees which one actually pays once traffic and distance are counted.</p>
+                </div>
+                <div class="card tall reveal" style="--i:5">
+                    <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#F0BE4A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 20V9l6-4 6 4v11"/><path d="M15 20V12h6v8"/><path d="M2 20h20M7 12h2M7 16h2"/>
+                    </svg>
+                    <h3 style="font-size:36px">The fleet operator</h3>
+                    <p style="font-size:25px">Quotes fares up front, puts cars where demand will be, and promises arrival times it can keep.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Passenger</span><span class="line"></span><span>Driver</span>
+        <span class="line"></span><span>Operator</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 7 — TEAM
+     Speaker: Keyneth Lara.
+     ======================================================================= -->
+<section class="slide" aria-label="The team">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The team</span>
+            <h2 class="reveal" style="--i:1">Four countries, <em>one dispatch</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:28px 34px">
+                <div class="card reveal" style="--i:3;padding:28px 30px">
+                    <div class="tick"><b>Colombia</b></div>
+                    <h3 style="margin-bottom:8px">Keyneth Lara</h3>
+                    <p style="font-size:21px">Overview, dataset &amp; Phase 2</p>
+                </div>
+                <div class="card reveal" style="--i:4;padding:28px 30px">
+                    <div class="tick"><b>Paraguay</b></div>
+                    <h3 style="margin-bottom:8px">William Vera</h3>
+                    <p style="font-size:21px">Phase 1 &mdash; Foundation</p>
+                </div>
+                <div class="card reveal" style="--i:5;padding:28px 30px">
+                    <div class="tick"><b>Argentina</b></div>
+                    <h3 style="margin-bottom:8px">Marcos Villabasa</h3>
+                    <p style="font-size:21px">Phase 3 &mdash; Modelling</p>
+                </div>
+                <div class="card reveal" style="--i:4;padding:28px 30px">
+                    <div class="tick"><b>Colombia</b></div>
+                    <h3 style="margin-bottom:8px">Mauricio Mora</h3>
+                    <p style="font-size:21px">Phase 4 &mdash; Serving</p>
+                </div>
+                <div class="card reveal" style="--i:5;padding:28px 30px">
+                    <div class="tick"><b>Peru</b></div>
+                    <h3 style="margin-bottom:8px">N&eacute;stor Mamani</h3>
+                    <p style="font-size:21px">Phase 5 &mdash; Delivery</p>
+                </div>
+                <div class="card reveal" style="--i:6;padding:28px 30px;border-color:var(--gold-edge)">
+                    <div class="tick"><b>Argentina</b> <i>team lead</i></div>
+                    <h3 style="margin-bottom:8px">Franco Diosquez</h3>
+                    <p style="font-size:21px">Direction &amp; review</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Anyone AI</span><span class="line"></span><span>ML Developer Career</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 8 — ROADMAP
+     Speaker: Keyneth Lara. The spine of the rest of the talk — each phase
+     block maps to the presenter who covers it.
+     ======================================================================= -->
+<section class="slide" aria-label="Project overview: the five phases">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The plan</span>
+            <h2 class="reveal" style="--i:1">Nineteen tickets, <em>five phases</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px;height:440px">
+                <div class="node hot reveal" style="--i:3;padding:26px 24px;display:flex;flex-direction:column">
+                    <div class="nt">Phase 01</div><div class="nb" style="font-size:27px;font-weight:700">Foundation</div>
+                    <div class="ns" style="margin-top:14px">Repo, research,<br>dataset on disk</div>
+                    <div class="chips" style="margin-top:18px"><span class="chip" style="font-size:15px;padding:5px 9px">T-101</span><span class="chip" style="font-size:15px;padding:5px 9px">T-102</span><span class="chip" style="font-size:15px;padding:5px 9px">T-116</span></div>
+                    <div class="ns" style="margin-top:auto;padding-top:20px;color:var(--gold-deep)">William</div>
+                </div>
+                <div class="node hot reveal" style="--i:4;padding:26px 24px;display:flex;flex-direction:column">
+                    <div class="nt">Phase 02</div><div class="nb" style="font-size:27px;font-weight:700">Data</div>
+                    <div class="ns" style="margin-top:14px">EDA, cleaning,<br>feature pipeline</div>
+                    <div class="chips" style="margin-top:18px"><span class="chip" style="font-size:15px;padding:5px 9px">T-103</span><span class="chip" style="font-size:15px;padding:5px 9px">T-104</span><span class="chip" style="font-size:15px;padding:5px 9px">T-105</span></div>
+                    <div class="ns" style="margin-top:auto;padding-top:20px;color:var(--gold-deep)">Keyneth</div>
+                </div>
+                <div class="node hot reveal" style="--i:5;padding:26px 24px;display:flex;flex-direction:column">
+                    <div class="nt">Phase 03</div><div class="nb" style="font-size:27px;font-weight:700">Modelling</div>
+                    <div class="ns" style="margin-top:14px">Three families,<br>then a winner</div>
+                    <div class="chips" style="margin-top:18px"><span class="chip" style="font-size:15px;padding:5px 9px">T-106</span><span class="chip" style="font-size:15px;padding:5px 9px">T-107</span><span class="chip" style="font-size:15px;padding:5px 9px">T-108</span><span class="chip" style="font-size:15px;padding:5px 9px">T-109</span></div>
+                    <div class="ns" style="margin-top:auto;padding-top:20px;color:var(--gold-deep)">Marcos</div>
+                </div>
+                <div class="node hot reveal" style="--i:6;padding:26px 24px;display:flex;flex-direction:column">
+                    <div class="nt">Phase 04</div><div class="nb" style="font-size:27px;font-weight:700">Serving</div>
+                    <div class="ns" style="margin-top:14px">API, dashboard,<br>tests, Docker</div>
+                    <div class="chips" style="margin-top:18px"><span class="chip" style="font-size:15px;padding:5px 9px">T-110</span><span class="chip" style="font-size:15px;padding:5px 9px">T-111</span><span class="chip" style="font-size:15px;padding:5px 9px">T-112</span><span class="chip" style="font-size:15px;padding:5px 9px">T-113</span><span class="chip" style="font-size:15px;padding:5px 9px">T-114</span></div>
+                    <div class="ns" style="margin-top:auto;padding-top:20px;color:var(--gold-deep)">Mauricio</div>
+                </div>
+                <div class="node hot reveal" style="--i:7;padding:26px 24px;display:flex;flex-direction:column">
+                    <div class="nt">Phase 05</div><div class="nb" style="font-size:27px;font-weight:700">Delivery</div>
+                    <div class="ns" style="margin-top:14px">Peer review,<br>docs &amp; demo</div>
+                    <div class="chips" style="margin-top:18px"><span class="chip" style="font-size:15px;padding:5px 9px">T-119</span><span class="chip" style="font-size:15px;padding:5px 9px">T-115</span></div>
+                    <div class="ns" style="margin-top:auto;padding-top:20px;color:var(--gold-deep)">N&eacute;stor</div>
+                </div>
+            </div>
+
+            <div class="node reveal" style="--i:8;margin-top:30px;display:flex;align-items:center;gap:28px;border-style:dashed">
+                <div class="nt" style="margin:0;white-space:nowrap">Phase X &middot; optional</div>
+                <div class="nb" style="font-size:22px">Weather enrichment &nbsp;&middot;&nbsp; Taxi demand by region &mdash; off the critical path, adopted only if they earn their place</div>
+                <div class="chips" style="margin-left:auto"><span class="chip off" style="text-decoration:none;font-size:15px;padding:5px 9px">T-117</span><span class="chip off" style="text-decoration:none;font-size:15px;padding:5px 9px">T-118</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Build order</span><span class="line"></span>
+        <span>Phase 3 runs its three model families in parallel</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 9 — DATASET
+     Speaker: Keyneth Lara.
+     ======================================================================= -->
+<section class="slide" aria-label="Dataset description">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The dataset</span>
+            <h2 class="reveal" style="--i:1">One month. <em>Three files.</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:32px">
+                <div class="card reveal" style="--i:3">
+                    <div class="tick"><b>Parquet</b> <i>the trips</i></div>
+                    <h3>Yellow Taxi trip records</h3>
+                    <p>Every metered yellow-cab ride in New York for May 2022 &mdash; one row per trip, straight from the TLC.</p>
+                    <div class="kpis" style="margin-top:26px;grid-template-columns:1fr 1fr">
+                        <div class="kpi" style="padding-left:20px"><div class="v" style="font-size:44px">3,588,295</div><div class="l">rows</div></div>
+                        <div class="kpi" style="padding-left:20px"><div class="v" style="font-size:44px">19</div><div class="l">columns &middot; 524 MB</div></div>
+                    </div>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>CSV</b> <i>the names</i></div>
+                    <h3>Taxi Zone Lookup</h3>
+                    <p>Turns a zone number into a place: borough, zone name and service zone.</p>
+                    <div class="kpi" style="margin-top:26px;padding-left:20px"><div class="v" style="font-size:44px">265</div><div class="l">zones mapped to boroughs</div></div>
+                </div>
+                <div class="card reveal" style="--i:5">
+                    <div class="tick"><b>Shapefile</b> <i>the geometry</i></div>
+                    <h3>Taxi Zone Shapefile</h3>
+                    <p>The actual polygons. This is where our coordinates have to come from.</p>
+                    <div class="kpi" style="margin-top:26px;padding-left:20px"><div class="v" style="font-size:44px">263</div><div class="l">polygons &rarr; zone centroids</div></div>
+                </div>
+            </div>
+
+            <div class="reveal" style="--i:7;margin-top:40px;display:flex;gap:14px;flex-wrap:wrap">
+                <span class="chip">median fare $10.50</span>
+                <span class="chip">median ride 12.7 min</span>
+                <span class="chip">99th percentile $63.00</span>
+                <span class="chip">highest fare $6,966.50</span>
+                <span class="chip">0 duplicate rows</span>
+                <span class="chip">143 rows outside May</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>NYC TLC Trip Record Data</span><span class="line"></span>
+        <span>Downloaded and checked by T-116</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 10 — NO COORDINATES
+     Speaker: Keyneth Lara. The map is the real shapefile, rendered by
+     ppt/tools/build_zonemap.py — not an illustration.
+     ======================================================================= -->
+<section class="slide" aria-label="The first trap: there are no coordinates">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The dataset &middot; trap 01</span>
+            <h2 class="reveal" style="--i:1">There are <em>no coordinates</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:600px 1fr;gap:62px;height:100%;align-items:center">
+                <div class="reveal-blur" style="--i:3;height:100%;display:flex;align-items:center">
+                    <svg viewBox="0 0 1000 1100" class="fig" role="img" aria-label="The 259 drawable NYC taxi zone polygons, shaded by borough, with Manhattan brightest." style="max-height:672px;width:auto;margin:0 auto">
+                        <style>.z{stroke:#0B0A0C;stroke-width:1.1;stroke-linejoin:round}.m{fill:#D9A93A}.e{fill:#B98C2C}.q{fill:#8A6821}.k{fill:#7A5C1D}.x{fill:#6B5019}.s{fill:#5A431A}</style>
+                        <!--ZONES--><path class="z e" d="M138,575L141,556L154,547L180,546L193,552L148,631L137,625L128,606L130,590L138,575Z"/><path class="z q" d="M772,704L776,726L785,738L780,742L786,748L784,760L776,760L771,768L768,762L747,759L752,753L752,731L758,719L754,706L768,712L772,704ZM737,710L728,725L710,724L715,714L731,705L737,710ZM750,723L741,738L735,726L747,719L750,723ZM790,727L793,737L794,757L783,724L790,727ZM730,727L726,734L730,733L737,741L701,753L706,739L702,741L702,735L707,736L714,727L718,731L730,727ZM697,752L676,759L682,740L696,730L697,752ZM817,731L821,734L815,739L824,736L817,741L813,751L810,748L811,758L804,763L801,739L817,731ZM823,742L841,746L841,755L847,762L828,777L812,767L823,742ZM872,760L859,757L868,746L870,747L872,760ZM738,754L735,760L746,762L742,781L730,786L722,779L729,773L732,754L738,754ZM716,757L716,764L726,759L725,771L716,780L709,769L714,764L710,755L716,757ZM824,776L819,785L806,784L804,779L811,771L824,776ZM724,797L707,803L702,794L706,789L717,790L724,797ZM745,803L756,813L754,819L736,810L745,803ZM696,836L690,835L688,825L697,813L706,822L696,836Z"/><path class="z x" d="M713,162L760,191L762,193L748,201L713,199L711,188L704,182L705,169L713,169L713,162Z"/><path class="z m" d="M511,505L508,521L490,515L500,496L511,505Z"/><path class="z s" d="M139,874L160,883L145,913L121,942L105,896L122,881L139,874Z"/><path class="z s" d="M350,790L347,785L362,776L370,795L348,820L338,802L318,813L311,804L319,797L318,791L301,796L299,780L303,774L350,790Z"/><path class="z q" d="M605,403L634,409L619,442L592,444L595,440L573,426L578,419L570,410L579,405L595,415L598,409L603,411L605,403Z"/><path class="z q" d="M596,391L588,387L602,373L606,377L596,391Z"/><path class="z q" d="M839,423L855,464L819,475L821,430L830,430L829,423L824,424L824,401L839,423Z"/><path class="z q" d="M842,587L862,606L838,627L834,626L832,640L810,640L810,624L803,603L815,599L813,594L821,590L824,595L842,587Z"/><path class="z k" d="M453,783L470,794L458,808L444,794L428,788L443,763L460,775L453,783Z"/><path class="z m" d="M440,520L436,542L431,555L433,521L440,520Z"/><path class="z k" d="M402,692L418,707L425,699L424,706L435,718L427,744L413,765L428,788L405,781L391,759L390,725L397,705L394,703L397,704L402,692Z"/><path class="z q" d="M852,341L864,360L857,364L854,360L869,382L855,386L855,382L820,395L806,389L808,365L821,365L829,355L844,353L846,347L842,345L852,341Z"/><path class="z q" d="M868,381L885,408L894,413L884,415L886,424L878,426L888,450L855,464L838,419L820,395L868,381Z"/><path class="z k" d="M562,561L567,610L544,609L541,593L533,595L532,586L540,585L539,577L532,578L530,568L537,566L543,557L547,562L555,556L562,561Z"/><path class="z x" d="M669,175L644,199L639,197L642,189L635,189L641,178L647,181L658,167L655,164L663,151L669,175Z"/><path class="z q" d="M939,449L953,449L970,500L936,510L933,500L906,489L939,449Z"/><path class="z x" d="M666,178L671,194L667,222L655,213L651,191L666,178Z"/><path class="z k" d="M506,766L512,801L496,803L497,808L486,807L480,815L463,820L467,815L462,815L463,811L470,808L468,805L485,783L481,780L498,759L506,766Z"/><path class="z k" d="M467,733L498,759L481,780L485,783L468,805L470,808L460,812L458,808L470,794L453,783L460,775L443,763L463,738L466,740L467,733Z"/><path class="z s" d="M118,714L155,743L178,753L198,773L209,776L255,773L260,790L250,790L242,799L232,797L218,820L202,821L180,805L174,812L165,807L168,790L158,788L149,795L133,821L136,823L120,829L109,841L100,841L102,819L115,802L105,775L109,724L118,714Z"/><path class="z m" d="M533,336L509,326L512,320L535,332L533,336Z"/><path class="z k" d="M494,589L500,599L494,612L471,600L481,582L494,589Z"/><path class="z k" d="M491,699L496,697L499,713L502,712L505,747L501,755L509,757L506,766L450,721L463,698L470,703L482,692L491,699Z"/><path class="z q" d="M696,857L703,872L647,894L626,897L566,929L568,899L592,883L617,873L626,880L636,880L651,867L677,866L703,850L696,857Z"/><path class="z q" d="M829,519L825,539L811,541L810,550L803,553L801,547L792,550L793,558L784,558L767,527L804,527L829,519Z"/><path class="z k" d="M532,833L542,834L546,854L517,852L523,815L531,814L532,833Z"/><path class="z q" d="M777,759L784,760L787,774L777,805L752,806L756,799L776,794L770,793L779,770L777,766L775,775L771,768L777,759Z"/><path class="z x" d="M688,201L692,200L693,216L681,238L667,222L671,194L665,184L679,171L688,152L688,201Z"/><path class="z x" d="M713,199L688,201L688,168L705,169L704,182L711,188L713,199Z"/><path class="z k" d="M469,556L478,563L478,589L460,582L457,576L461,576L464,571L460,569L465,569L462,565L467,565L469,556Z"/><path class="z k" d="M510,543L514,548L514,553L519,556L517,548L528,564L524,573L496,568L499,550L502,557L504,553L504,565L507,561L510,564L509,560L513,564L510,558L515,563L506,550L510,550L507,546L513,551L510,543Z"/><path class="z k" d="M631,620L640,662L624,669L622,674L620,666L603,652L602,657L591,644L631,620Z"/><path class="z k" d="M615,555L617,564L635,584L630,590L580,557L578,547L599,542L615,555Z"/><path class="z k" d="M579,553L629,590L634,585L644,605L642,610L630,612L570,567L560,568L559,563L566,562L560,539L576,533L579,553Z"/><path class="z q" d="M908,558L941,556L943,602L905,588L912,572L907,572L905,564L909,563L908,558Z"/><path class="z k" d="M649,667L658,691L678,712L666,723L668,729L659,729L645,743L605,721L602,692L621,676L630,687L649,667Z"/><path class="z k" d="M461,598L469,606L471,600L484,607L478,620L471,620L464,629L456,611L461,598Z"/><path class="z m" d="M546,307L564,317L551,341L533,331L541,310L546,307Z"/><path class="z m" d="M577,250L578,288L569,308L574,312L570,320L546,307L577,250Z"/><path class="z m" d="M510,414L494,406L536,332L551,341L510,414Z"/><path class="z s" d="M100,890L73,909L86,976L68,983L63,981L72,1019L55,1020L40,1030L24,1033L16,1024L12,1007L21,987L23,990L22,987L24,987L23,985L25,984L28,988L40,978L33,967L36,945L26,925L56,897L77,899L100,890Z"/><path class="z m" d="M466,532L475,531L476,542L463,546L452,536L462,523L469,527L466,532Z"/><path class="z x" d="M873,206L866,212L866,229L859,213L861,195L873,206ZM829,198L833,200L833,210L846,225L841,231L841,232L842,232L846,230L847,232L841,232L847,232L842,235L846,234L843,237L846,235L847,236L842,249L839,247L837,248L837,247L826,225L830,215L824,214L829,211L825,212L828,210L825,211L828,209L825,209L824,203L829,198Z"/><path class="z x" d="M653,209L644,226L649,227L627,266L619,263L629,230L635,231L653,191L653,209Z"/><path class="z m" d="M477,436L467,432L483,403L493,409L477,436Z"/><path class="z k" d="M530,568L532,578L539,577L540,585L532,586L533,595L541,593L544,610L540,612L517,606L516,573L530,568Z"/><path class="z m" d="M468,395L483,403L470,427L455,417L463,418L458,412L464,414L459,410L465,412L461,407L467,409L462,404L467,406L464,401L468,403L471,399L468,395Z"/><path class="z x" d="M771,165L784,182L776,192L765,197L754,176L750,178L745,156L736,151L770,131L776,133L771,165Z"/><path class="z k" d="M469,605L462,604L461,598L466,584L475,588L469,605Z"/><path class="z q" d="M742,339L744,338L742,339L748,350L741,347L741,353L744,353L745,375L768,375L760,394L744,412L735,413L723,398L727,384L722,382L725,380L721,381L721,380L725,380L726,379L722,380L722,379L726,374L716,375L708,367L720,360L716,360L720,345L726,349L727,344L736,345L737,340L739,344L742,339Z"/><path class="z k" d="M453,583L466,584L456,611L448,593L454,591L451,588L455,590L452,585L460,587L453,583Z"/><path class="z k" d="M485,830L502,834L521,830L517,852L533,855L491,861L491,865L490,861L458,865L457,859L441,853L439,844L448,837L482,844L486,837L483,842L480,839L485,830Z"/><path class="z q" d="M717,451L729,474L699,485L694,460L717,451Z"/><path class="z x" d="M785,222L786,228L792,225L787,234L785,231L780,231L786,238L784,250L767,255L768,227L785,222Z"/><path class="z x" d="M643,233L660,243L642,254L635,252L643,233Z"/><path class="z x" d="M675,241L685,242L684,245L672,253L665,265L664,280L659,281L662,268L642,263L642,254L661,241L669,247L675,241Z"/><path class="z k" d="M576,604L597,602L599,613L597,640L587,646L573,644L573,638L530,630L532,622L526,620L530,609L577,611L576,604Z"/><path class="z k" d="M586,646L530,649L528,629L573,638L573,644L586,646Z"/><path class="z k" d="M692,575L706,623L681,610L671,612L670,607L637,617L630,612L641,610L648,598L651,602L656,600L683,577L692,575Z"/><path class="z q" d="M899,372L964,425L952,430L934,460L918,475L913,475L911,469L899,471L894,466L909,464L907,456L911,453L900,429L890,430L884,415L894,413L898,421L910,433L891,408L894,395L890,384L899,372Z"/><path class="z k" d="M484,563L485,568L496,570L498,579L493,579L494,587L478,581L478,562L484,563Z"/><path class="z k" d="M499,550L496,570L470,557L473,553L499,550Z"/><path class="z k" d="M443,724L450,721L467,736L432,777L429,786L413,765L427,744L435,718L443,724Z"/><path class="z m" d="M458,471L447,467L467,432L477,438L458,471Z"/><path class="z x" d="M628,235L617,276L610,274L593,292L589,291L616,234L628,235Z"/><path class="z q" d="M693,402L717,429L681,433L679,399L693,402Z"/><path class="z k" d="M582,667L591,710L572,715L572,720L559,721L558,705L552,702L557,695L555,666L582,667Z"/><path class="z k" d="M602,656L603,652L620,666L622,674L597,703L596,697L586,703L581,664L588,664L588,656L591,657L584,648L591,644L602,656Z"/><path class="z q" d="M821,430L817,450L822,455L807,457L808,449L799,448L788,457L776,443L781,432L776,428L793,422L814,427L821,430Z"/><path class="z m" d="M577,288L577,313L586,341L576,353L569,353L552,338L559,319L570,320L574,312L569,308L577,288Z"/><path class="z m" d="M561,348L576,353L561,373L539,361L552,338L564,344L561,348Z"/><path class="z k" d="M671,612L681,610L706,623L707,630L712,629L715,647L702,663L713,678L713,694L703,696L696,702L698,705L693,700L689,691L673,669L694,707L684,711L675,705L682,689L669,669L655,677L649,667L630,687L621,676L624,669L669,647L667,642L655,647L653,630L649,622L639,624L637,617L670,607L671,612Z"/><path class="z k" d="M637,617L639,624L649,622L655,647L667,642L669,647L640,662L631,620L637,617Z"/><path class="z x" d="M654,207L675,235L681,238L691,220L693,230L683,242L672,241L669,247L661,241L656,242L645,234L649,227L644,226L649,211L654,207Z"/><path class="z m" d="M490,514L475,508L480,485L500,496L490,514Z"/><path class="z k" d="M582,499L594,519L581,530L579,539L584,544L583,530L594,523L601,540L581,546L576,533L560,539L564,562L549,551L551,532L543,532L582,499Z"/><path class="z x" d="M770,126L772,123L824,141L791,133L776,136L770,131L736,151L745,156L750,178L754,176L762,193L718,164L723,159L720,150L730,131L750,128L746,117L770,126Z"/><path class="z q" d="M691,451L700,485L660,500L657,484L677,491L668,477L677,475L671,467L659,469L652,456L691,451Z"/><path class="z q" d="M644,452L663,471L671,467L676,473L668,477L677,491L628,481L626,489L619,487L621,480L646,463L644,452Z"/><path class="z s" d="M180,961L149,981L143,977L137,980L118,1002L111,995L96,998L79,1017L71,1019L63,981L68,983L86,976L85,969L107,964L124,951L121,942L143,917L160,883L171,923L191,946L178,957L180,961Z"/><path class="z k" d="M555,666L557,695L553,706L543,706L536,696L534,678L550,677L550,667L555,666Z"/><path class="z q" d="M872,761L883,769L880,773L881,773L884,769L909,766L922,788L922,799L916,802L922,800L923,807L907,807L895,815L877,814L881,795L872,795L870,803L864,797L868,773L859,767L860,763L872,761Z"/><path class="z m" d="M446,539L458,553L450,556L453,558L452,558L440,548L446,539Z"/><path class="z m" d="M440,548L449,561L439,565L437,554L440,548Z"/><path class="z k" d="M543,706L558,705L559,721L556,722L560,727L532,731L528,726L512,728L513,733L504,735L502,724L518,710L512,683L532,666L536,696L543,706Z"/><path class="z m" d="M468,476L457,472L467,455L477,461L468,476Z"/><path class="z k" d="M603,696L608,757L591,764L573,748L557,759L554,727L560,727L556,722L589,713L593,697L597,703L603,696Z"/><path class="z q" d="M766,401L781,432L776,443L785,455L770,444L767,450L755,454L756,444L750,445L746,438L748,419L743,413L768,375L773,375L766,401Z"/><path class="z q" d="M713,416L713,416L712,418L713,419L711,420L713,422L710,421L712,423L722,427L731,422L737,436L745,432L750,445L756,444L748,467L749,485L765,507L768,524L782,523L758,530L760,528L752,519L717,451L723,449L718,432L705,417L710,421L713,416Z"/><path class="z x" d="M631,193L642,189L639,197L644,199L653,191L645,208L639,209L636,204L634,208L627,205L631,193Z"/><path class="z q" d="M730,474L752,519L760,528L747,538L715,549L710,512L704,504L712,505L708,503L714,492L710,482L730,474Z"/><path class="z q" d="M746,545L748,554L734,565L727,568L717,562L720,569L683,577L656,600L651,602L648,598L644,605L635,592L637,580L649,582L646,576L661,572L659,565L703,556L712,561L721,559L717,548L746,545Z"/><path class="z k" d="M515,569L514,588L517,606L501,601L490,587L494,587L493,579L498,579L496,568L515,569Z"/><path class="z q" d="M869,458L878,482L873,489L889,503L867,504L853,512L856,505L852,494L827,504L819,475L869,458Z"/><path class="z s" d="M166,826L163,884L140,874L122,881L108,896L98,892L100,890L87,894L100,840L109,841L120,829L136,823L133,821L149,795L158,788L168,790L165,807L174,810L166,826Z"/><path class="z m" d="M484,448L473,444L480,432L490,438L484,448Z"/><path class="z q" d="M986,446L988,473L975,499L970,500L953,449L939,449L938,454L938,449L953,429L963,425L986,446Z"/><path class="z q" d="M708,533L721,559L679,559L669,565L659,565L661,572L646,576L649,582L637,579L656,551L692,548L690,543L708,533Z"/><path class="z m" d="M427,580L441,581L440,589L421,603L415,596L427,580Z"/><path class="z k" d="M486,608L494,612L475,644L464,629L486,608Z"/><path class="z m" d="M493,492L480,485L490,464L495,467L492,473L500,477L493,492Z"/><path class="z k" d="M512,801L513,817L523,815L521,830L502,834L485,830L480,839L476,837L479,830L470,836L461,833L463,826L472,821L461,824L486,807L497,808L496,803L512,801Z"/><path class="z s" d="M203,862L230,876L218,894L228,904L218,913L222,921L219,919L218,925L212,928L214,939L181,962L178,957L191,946L171,923L163,884L172,886L185,881L203,862Z"/><path class="z s" d="M238,893L262,914L246,922L227,952L218,956L215,944L226,943L238,928L233,919L218,913L238,893Z"/><path class="z k" d="M470,657L479,662L482,658L494,667L496,686L481,693L465,680L458,673L470,657Z"/><path class="z k" d="M542,474L556,479L554,483L555,485L557,480L563,482L570,495L581,499L554,521L551,512L541,512L529,504L530,493L525,488L542,474Z"/><path class="z m" d="M477,501L462,488L467,478L480,485L477,501Z"/><path class="z m" d="M475,508L457,499L462,488L477,502L475,508Z"/><path class="z s" d="M320,731L313,738L309,764L334,743L337,748L319,780L290,770L280,757L311,716L320,731Z"/><path class="z m" d="M569,265L558,285L533,279L549,254L569,265Z"/><path class="z q" d="M855,772L859,774L858,777L858,776L857,774L855,773L858,784L845,798L848,801L857,790L860,798L870,803L872,795L881,794L877,814L783,835L786,833L780,822L782,819L797,809L806,814L799,808L803,805L809,811L809,807L807,807L808,805L807,806L808,805L807,805L805,802L804,802L804,801L808,797L827,794L837,787L830,796L829,805L831,806L842,782L855,772Z"/><path class="z s" d="M249,772L303,774L299,780L300,798L285,810L272,832L249,852L238,849L208,859L208,864L202,862L185,881L172,886L163,884L166,826L177,805L201,821L218,820L232,797L242,799L250,790L260,790L255,773L249,772Z"/><path class="z x" d="M587,230L607,229L609,236L588,265L579,269L579,252L587,230Z"/><path class="z m" d="M594,191L598,205L567,263L575,237L590,215L594,191Z"/><path class="z q" d="M786,474L820,476L830,517L799,527L797,518L805,514L804,506L800,499L793,500L794,503L786,498L786,474Z"/><path class="z q" d="M886,518L900,550L872,558L868,542L862,540L866,536L862,527L886,518Z"/><path class="z k" d="M527,766L528,772L535,771L538,792L539,823L532,824L531,814L513,817L509,796L509,774L525,772L527,766Z"/><path class="z q" d="M705,621L754,640L763,662L767,683L758,673L762,665L760,666L757,670L757,669L758,668L758,665L761,664L762,662L762,661L760,660L761,659L761,659L760,656L760,660L762,662L758,665L757,668L759,660L754,661L759,683L751,683L745,650L750,689L726,693L722,689L726,676L715,676L705,664L708,663L708,660L706,663L702,660L712,656L710,648L715,647L712,629L707,630L705,621Z"/><path class="z m" d="M457,499L453,514L435,503L442,503L443,497L457,499Z"/><path class="z x" d="M661,270L659,281L664,280L668,289L689,305L693,318L686,333L675,327L663,328L651,319L652,322L646,318L633,322L632,311L650,285L644,285L649,278L646,273L661,270Z"/><path class="z m" d="M617,165L615,180L597,202L587,180L605,165L612,169L617,165Z"/><path class="z m" d="M591,154L597,156L600,165L600,159L604,165L617,164L612,169L605,165L587,180L581,172L591,154Z"/><path class="z q" d="M679,399L681,433L691,451L652,456L644,452L637,431L647,413L679,399Z"/><path class="z q" d="M866,536L862,540L868,541L856,550L861,562L843,551L826,559L802,585L794,582L784,558L793,558L792,550L801,547L803,553L810,550L807,545L815,539L817,543L862,527L866,536Z"/><path class="z q" d="M853,512L867,504L889,503L896,517L825,539L830,515L827,504L852,494L856,505L853,512Z"/><path class="z q" d="M756,644L787,650L812,644L847,650L894,682L892,685L906,699L904,712L875,726L865,748L865,740L854,730L841,746L832,742L844,724L781,687L775,679L774,657L793,654L780,651L772,656L773,683L767,679L767,683L756,644Z"/><path class="z k" d="M500,685L506,691L513,688L518,710L504,723L496,697L492,699L482,692L500,685Z"/><path class="z q" d="M767,527L784,558L773,555L758,561L749,556L748,545L737,543L767,527Z"/><path class="z q" d="M758,466L761,478L770,472L786,475L786,498L794,503L793,500L800,499L804,506L805,514L797,518L799,527L768,524L765,507L749,483L748,467L758,466Z"/><path class="z x" d="M637,177L639,173L643,175L628,198L623,196L620,202L614,196L621,190L612,189L624,164L637,177Z"/><path class="z m" d="M512,465L508,483L492,473L500,459L512,465Z"/><path class="z q" d="M688,366L692,371L685,378L716,397L710,402L714,405L703,410L705,417L687,399L659,410L657,405L656,394L665,393L664,380L674,378L674,374L673,373L673,373L681,376L688,366Z"/><path class="z q" d="M905,588L941,601L939,606L916,641L887,641L890,627L883,621L891,619L905,588Z"/><path class="z m" d="M535,429L529,427L545,397L554,402L535,429Z"/><path class="z m" d="M529,426L520,422L537,393L545,397L529,426Z"/><path class="z m" d="M494,408L483,403L496,380L506,385L494,408Z"/><path class="z m" d="M494,379L483,403L468,394L472,395L481,380L477,381L483,376L494,379Z"/><path class="z m" d="M469,526L459,519L468,505L475,508L469,526Z"/><path class="z q" d="M548,437L573,453L560,465L572,460L569,476L565,473L569,466L567,464L557,476L543,472L528,476L538,451L544,454L538,451L548,437Z"/><path class="z q" d="M573,451L560,443L573,426L595,440L573,451Z"/><path class="z x" d="M646,269L649,278L644,285L649,285L632,311L635,269L646,269Z"/><path class="z m" d="M489,517L479,531L466,532L475,508L489,517Z"/><path class="z k" d="M559,758L563,776L568,771L572,775L568,778L577,792L538,802L535,771L550,768L549,763L559,758Z"/><path class="z k" d="M585,829L582,834L544,834L580,838L583,849L546,854L542,834L534,834L532,829L577,825L585,829Z"/><path class="z m" d="M525,350L503,337L509,326L532,338L525,350Z"/><path class="z m" d="M533,279L556,284L546,307L528,292L536,281L533,279Z"/><path class="z m" d="M625,159L621,167L609,159L619,151L625,159Z"/><path class="z k" d="M576,774L585,783L591,778L595,781L603,778L622,791L666,782L679,829L673,840L646,848L639,823L617,827L616,807L611,797L600,790L594,795L583,786L583,791L612,818L606,825L568,778L576,774ZM603,796L609,799L615,813L611,814L599,801L603,796ZM611,826L616,833L607,833L617,837L582,834L582,827L601,830L611,826Z"/><path class="z k" d="M605,721L636,745L644,745L645,761L653,765L648,769L656,768L649,779L638,782L635,768L622,754L634,771L634,781L622,779L623,785L614,785L608,774L612,760L603,776L606,780L591,778L585,783L574,773L561,773L559,758L573,748L591,764L608,757L605,721Z"/><path class="z s" d="M146,690L146,698L156,690L161,696L158,701L161,696L172,697L182,707L190,704L193,709L196,704L201,708L210,703L203,727L204,739L192,766L118,714L134,694L139,697L139,691L146,690Z"/><path class="z q" d="M641,483L657,484L660,507L637,510L642,517L637,522L640,520L642,526L629,534L626,524L620,523L615,529L618,534L595,532L601,528L598,526L617,519L613,511L641,483Z"/><path class="z m" d="M440,470L453,470L449,498L437,498L443,490L437,487L443,487L444,474L440,470Z"/><path class="z x" d="M608,277L635,286L629,305L606,296L601,300L597,295L590,296L608,277Z"/><path class="z q" d="M687,496L708,532L690,543L692,548L671,549L677,547L672,535L629,534L642,526L640,520L637,522L642,517L638,515L639,509L660,507L660,500L681,493L687,496Z"/><path class="z m" d="M512,424L500,443L490,438L501,417L512,424Z"/><path class="z m" d="M520,422L507,447L500,443L515,419L520,422Z"/><path class="z m" d="M495,408L515,419L512,424L489,415L495,408Z"/><path class="z m" d="M491,463L478,458L490,438L495,441L490,451L495,454L491,463Z"/><path class="z k" d="M512,728L554,727L559,749L556,750L557,759L549,763L550,768L528,772L524,743L517,744L512,728Z"/><path class="z m" d="M528,292L546,307L533,331L512,320L528,292Z"/><path class="z x" d="M642,262L661,270L646,273L645,268L635,269L635,286L609,279L610,274L617,276L621,264L627,266L635,252L642,254L642,262Z"/><path class="z x" d="M594,297L606,296L631,307L633,323L617,341L589,327L581,314L580,301L584,303L589,291L594,297Z"/><path class="z x" d="M627,205L645,208L635,231L629,230L628,236L607,229L612,229L627,205Z"/><path class="z m" d="M511,458L508,463L500,459L495,467L490,464L495,441L507,447L504,451L511,458Z"/><path class="z q" d="M824,401L824,424L829,423L830,430L793,422L776,428L769,401L766,402L766,392L772,380L787,382L786,387L815,390L824,401Z"/><path class="z s" d="M311,859L287,889L262,872L257,878L242,866L248,852L277,827L289,838L285,841L311,859Z"/><path class="z q" d="M715,429L719,437L715,438L717,451L694,460L683,433L715,429Z"/><path class="z x" d="M675,132L681,149L689,148L679,171L667,180L669,175L660,139L670,143L675,132Z"/><path class="z q" d="M889,429L900,429L911,453L907,456L909,464L894,466L899,471L911,469L913,475L918,475L889,503L873,489L878,479L869,458L888,450L878,426L886,424L889,429Z"/><path class="z s" d="M248,852L248,860L242,866L257,878L262,872L286,889L284,897L277,903L272,901L263,915L238,893L228,904L218,894L230,876L208,864L208,859L238,849L248,852Z"/><path class="z k" d="M606,594L637,617L597,640L599,613L609,613L606,594Z"/><path class="z k" d="M513,735L517,744L524,743L527,766L525,772L507,775L509,757L501,755L505,747L502,735L513,735Z"/><path class="z q" d="M579,384L606,402L603,411L598,409L595,415L579,405L576,410L574,408L577,400L571,391L579,384Z"/><path class="z q" d="M741,602L746,617L754,640L705,621L702,612L741,602Z"/><path class="z k" d="M517,624L488,659L482,651L478,655L467,646L471,641L475,644L500,599L508,603L504,615L517,624Z"/><path class="z x" d="M722,254L702,257L699,239L719,235L722,254Z"/><path class="z x" d="M748,233L751,209L762,205L766,229L748,233Z"/><path class="z x" d="M799,135L824,142L808,171L806,166L807,174L797,169L804,179L808,182L821,164L823,152L830,146L830,151L839,152L834,165L838,163L838,168L841,163L841,170L837,175L833,172L827,176L826,193L822,203L814,206L811,222L805,210L804,191L799,198L787,186L783,192L790,197L790,208L783,209L786,220L768,227L768,235L763,207L755,204L762,193L765,197L776,192L784,182L771,165L776,136L799,135Z"/><path class="z x" d="M693,199L751,203L741,208L733,222L734,215L719,219L716,214L703,222L702,217L692,213L690,205L693,199Z"/><path class="z m" d="M478,459L467,455L473,444L483,449L478,459Z"/><path class="z s" d="M226,698L235,700L239,709L233,723L219,731L223,737L219,739L216,757L205,755L204,771L198,773L192,766L205,737L208,707L226,698Z"/><path class="z k" d="M537,646L584,648L591,657L588,656L588,664L550,667L550,677L534,678L527,651L537,646Z"/><path class="z k" d="M532,622L530,630L516,626L515,620L504,615L508,603L530,609L526,620L532,622Z"/><path class="z k" d="M527,651L529,668L521,672L524,677L512,683L507,660L497,654L514,627L528,629L530,649L527,651Z"/><path class="z q" d="M933,500L939,510L935,512L941,556L908,558L907,572L903,574L900,550L888,522L896,517L889,503L906,489L933,500Z"/><path class="z q" d="M770,444L788,457L799,448L808,449L807,457L822,455L819,475L770,472L761,478L758,466L750,464L752,456L767,450L770,444Z"/><path class="z q" d="M576,400L570,410L578,419L560,443L548,437L565,410L576,400Z"/><path class="z m" d="M608,339L613,348L597,372L588,377L576,373L580,357L591,355L587,349L592,329L608,339Z"/><path class="z k" d="M449,596L464,629L457,639L452,638L450,642L450,642L452,631L449,640L449,637L445,637L442,645L434,646L432,645L428,630L433,645L440,643L444,635L437,634L441,632L435,632L437,628L434,631L439,626L433,627L436,622L429,628L428,611L439,602L439,609L445,603L441,601L449,596Z"/><path class="z q" d="M709,481L711,508L704,504L710,512L712,537L708,537L687,496L681,493L709,481Z"/><path class="z q" d="M748,554L758,561L773,555L784,558L794,582L769,592L767,587L763,589L765,593L746,600L748,605L743,607L726,568L748,554Z"/><path class="z q" d="M624,524L628,534L672,535L677,547L656,551L635,584L617,564L617,556L599,542L595,532L618,534L615,529L624,524Z"/><path class="z x" d="M657,336L660,338L666,343L676,346L686,354L687,364L675,367L656,362L650,350L657,336Z"/><path class="z x" d="M643,76L641,125L630,133L620,128L611,138L604,136L601,132L619,67L643,76Z"/><path class="z q" d="M781,823L786,833L783,835L703,871L696,857L720,838L744,836L770,824L781,823Z"/><path class="z m" d="M567,396L545,432L529,450L567,396Z"/><path class="z q" d="M941,601L939,649L944,674L916,686L915,701L920,712L915,713L917,708L912,704L906,709L903,690L876,669L880,660L903,673L913,673L913,665L903,661L913,643L920,642L916,641L941,601Z"/><path class="z s" d="M104,897L124,951L107,964L82,970L73,909L79,899L92,893L104,897Z"/><path class="z q" d="M872,558L897,551L903,574L912,572L891,619L877,624L857,609L862,606L860,602L853,595L849,597L842,587L852,587L848,580L861,562L857,547L868,541L872,558Z"/><path class="z s" d="M317,683L336,691L338,697L333,698L339,698L334,700L339,700L334,701L334,707L302,713L290,702L255,707L263,741L249,730L231,734L239,702L256,699L269,690L288,691L317,683Z"/><path class="z q" d="M635,426L633,409L649,412L640,426L635,426Z"/><path class="z x" d="M766,229L767,255L785,250L786,262L795,268L788,271L788,277L800,275L804,289L817,297L807,304L803,297L800,295L803,303L808,310L828,316L828,323L784,301L759,308L757,322L747,319L741,304L749,289L748,271L747,266L738,266L744,256L743,240L747,233L766,229Z"/><path class="z m" d="M453,536L463,546L459,553L446,539L453,536Z"/><path class="z k" d="M579,788L606,826L593,827L588,822L596,815L587,821L585,808L580,806L585,821L583,825L587,824L593,829L577,825L532,829L532,824L539,823L538,802L563,799L562,794L579,788Z"/><path class="z m" d="M459,518L452,513L458,499L468,505L459,518Z"/><path class="z x" d="M665,280L665,268L706,256L712,259L714,272L665,280Z"/><path class="z x" d="M748,293L742,294L744,282L738,267L747,266L748,293ZM735,268L742,287L731,309L723,300L715,300L726,305L729,321L724,323L713,322L709,310L708,314L694,309L688,300L675,296L664,280L713,272L716,282L737,278L735,268Z"/><path class="z s" d="M313,805L318,813L338,802L349,822L330,842L333,845L330,843L312,861L285,841L289,838L277,827L286,809L304,793L317,790L319,796L313,805Z"/><path class="z q" d="M843,551L859,564L848,580L852,587L847,584L824,595L821,590L813,594L815,599L803,603L794,582L802,585L826,559L843,551Z"/><path class="z q" d="M794,582L810,624L809,644L787,650L756,644L743,607L748,605L746,600L765,593L763,589L767,587L769,592L794,582Z"/><path class="z k" d="M540,547L555,556L547,562L543,557L537,566L527,569L528,564L517,548L540,547Z"/><path class="z q" d="M873,622L883,621L890,627L887,641L860,637L832,640L834,626L838,627L853,611L857,609L873,622Z"/><path class="z q" d="M860,637L921,641L910,647L903,661L913,665L913,673L903,673L880,660L876,669L843,649L809,644L810,640L860,637Z"/><path class="z x" d="M640,127L637,134L643,135L626,165L619,151L606,159L593,152L601,132L611,138L621,127L630,133L632,128L640,127Z"/><path class="z s" d="M323,706L338,708L333,710L334,725L342,728L334,725L335,738L362,776L347,785L350,790L319,780L336,750L334,743L309,764L308,760L314,734L322,728L311,716L323,706Z"/><path class="z k" d="M669,669L682,689L675,705L653,679L669,669Z"/><path class="z q" d="M626,356L644,366L635,373L633,379L647,370L645,376L650,373L652,374L650,386L659,410L649,412L606,403L595,392L606,377L602,373L615,358L626,356Z"/><path class="z m" d="M500,479L512,496L512,503L492,492L500,479Z"/><path class="z k" d="M606,594L609,613L599,613L597,602L576,604L577,611L567,610L560,568L570,567L606,594Z"/><path class="z q" d="M620,451L604,490L606,498L617,495L625,501L613,511L617,519L598,526L593,513L602,509L571,494L564,481L557,478L565,473L569,476L572,460L560,463L581,444L612,440L619,442L620,451Z"/><path class="z k" d="M481,693L470,703L463,698L444,725L434,718L437,707L433,704L458,673L481,693Z"/><path class="z k" d="M464,629L471,641L467,646L484,655L479,662L470,657L433,704L437,707L432,713L424,706L425,699L418,707L404,694L416,688L410,683L418,686L416,677L422,677L417,673L424,678L421,670L429,671L427,667L432,668L427,664L433,666L428,662L437,662L431,658L435,655L441,659L439,652L447,657L445,649L454,653L451,649L455,652L456,651L451,649L448,645L449,645L460,649L463,646L457,641L462,639L464,637L464,629Z"/><path class="z m" d="M534,430L524,445L512,437L520,422L534,430Z"/><path class="z m" d="M491,436L480,432L489,415L499,420L491,436Z"/><path class="z m" d="M443,505L462,523L447,538L438,533L440,520L436,517L443,505Z"/><path class="z m" d="M490,515L508,521L501,540L476,542L475,531L490,515Z"/><path class="z m" d="M522,444L512,464L508,463L512,456L504,451L512,437L522,444Z"/><path class="z m" d="M479,484L467,478L478,458L490,464L479,484Z"/><path class="z x" d="M620,191L614,196L620,202L625,196L629,202L612,229L588,229L612,189L620,191Z"/><path class="z m" d="M536,394L524,390L539,361L551,368L536,394Z"/><path class="z m" d="M521,421L509,416L524,390L535,396L521,421Z"/><path class="z m" d="M516,366L494,355L503,337L525,351L516,366Z"/><path class="z m" d="M494,355L516,367L506,385L483,376L494,355Z"/><path class="z x" d="M693,96L677,113L688,110L704,115L690,153L689,148L675,144L675,132L670,143L637,134L643,117L643,76L693,96Z"/><path class="z x" d="M657,139L662,151L655,164L658,167L647,181L639,173L638,177L633,175L626,165L639,139L643,135L657,139Z"/><path class="z x" d="M762,193L746,240L734,244L724,235L683,242L693,230L692,213L702,217L703,222L716,214L719,219L734,215L733,222L741,208L751,203L748,201L762,193Z"/><path class="z m" d="M582,173L594,191L589,217L582,224L563,214L561,219L555,217L564,209L582,173Z"/><path class="z m" d="M566,215L582,224L566,263L549,254L556,232L555,217L566,215Z"/><path class="z s" d="M255,707L297,704L299,713L315,712L280,757L263,741L255,707Z"/><path class="z m" d="M454,420L470,427L447,467L441,464L447,461L441,460L446,452L442,452L453,431L450,427L458,422L454,420Z"/><path class="z x" d="M616,236L602,260L584,303L580,301L579,269L587,266L604,245L607,229L616,236Z"/><path class="z x" d="M700,241L702,257L665,268L672,253L685,242L700,241Z"/><path class="z m" d="M457,497L449,498L453,470L467,478L457,497Z"/><path class="z x" d="M732,243L743,239L743,255L735,268L737,278L716,282L712,259L706,257L722,254L719,235L732,243Z"/><path class="z s" d="M232,723L231,734L249,730L276,752L290,770L259,769L230,776L199,772L204,771L205,755L216,757L219,739L223,737L219,731L232,723Z"/><path class="z q" d="M776,331L788,340L822,345L823,358L829,360L808,365L806,389L786,387L787,382L772,380L773,375L745,375L741,347L748,350L747,359L755,359L764,349L761,341L776,331Z"/><path class="z q" d="M744,413L748,423L745,432L737,436L731,422L744,413Z"/><path class="z x" d="M721,151L723,159L718,164L713,162L713,169L688,168L706,113L732,126L721,151Z"/><path class="z k" d="M529,506L551,512L554,521L540,536L519,526L529,506Z"/><path class="z k" d="M535,533L551,532L549,551L536,545L516,548L519,526L535,533Z"/><path class="z k" d="M493,651L507,662L513,688L506,691L496,686L494,667L482,658L488,659L493,651Z"/><path class="z q" d="M724,563L741,602L702,612L692,578L720,569L717,562L724,563Z"/><path class="z x" d="M722,79L718,85L739,93L750,128L730,131L732,126L706,113L677,113L693,96L708,101L716,82L722,79Z"/><path class="z q" d="M634,424L640,426L638,433L646,462L621,480L619,487L626,489L628,481L635,486L625,501L617,495L606,498L608,474L616,466L618,442L631,412L634,424Z"/><path class="z m" d="M438,552L433,553L438,533L447,538L438,552Z"/><path class="z m" d="M560,373L564,388L554,402L545,397L560,373Z"/><path class="z m" d="M546,396L537,393L551,368L559,372L546,396Z"/><!--/ZONES-->
+                    </svg>
+                </div>
+                <div>
+                    <p class="reveal" style="--i:4;font-size:33px;color:var(--cream);line-height:1.42">
+                        The TLC removed latitude and longitude in <strong>2016</strong>. Any brief that says &ldquo;pickup and dropoff coordinates&rdquo; is describing a dataset that no longer exists.
+                    </p>
+                    <div class="reveal" style="--i:5;margin-top:36px;display:flex;gap:20px">
+                        <div class="node" style="flex:1"><div class="nt">What we get</div><div class="nb">PULocationID<br>DOLocationID</div><div class="ns">a zone number, 1 &ndash; 265</div></div>
+                        <div class="node hot" style="flex:1"><div class="nt">What we build</div><div class="nb">Zone centroids</div><div class="ns">derived from the shapefile &mdash; which is why it is a required input, not a reference</div></div>
+                    </div>
+                    <div class="reveal" style="--i:6;margin-top:34px">
+                        <div class="eyebrow">Busiest pickups in May 2022</div>
+                        <div class="chips" style="margin-top:18px">
+                            <span class="chip">JFK Airport &middot; 132 &middot; 175,937</span>
+                            <span class="chip">Upper East Side South &middot; 237 &middot; 173,544</span>
+                            <span class="chip">Midtown Center &middot; 161 &middot; 138,542</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Taxi Zone Shapefile</span><span class="line"></span>
+        <span>259 polygons drawn &middot; 5 boroughs + Newark</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 11 — LEAKAGE CONTRACT
+     Speaker: Keyneth Lara.
+     ======================================================================= -->
+<section class="slide" aria-label="The second trap: leakage">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">The dataset &middot; trap 02</span>
+            <h2 class="reveal" style="--i:1">Half the columns <em>are cheating</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="split c2" style="height:auto">
+                <div class="reveal" style="--i:3">
+                    <div class="eyebrow" style="color:var(--gold);font-size:22px">Allowed &mdash; known at pickup</div>
+                    <div class="chips" style="margin-top:24px">
+                        <span class="chip" style="font-size:22px;padding:12px 18px">tpep_pickup_datetime</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">PULocationID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">DOLocationID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">passenger_count</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">RatecodeID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">VendorID</span>
+                        <span class="chip" style="font-size:22px;padding:12px 18px">trip_distance *</span>
+                    </div>
+                </div>
+                <div class="reveal" style="--i:4">
+                    <div class="eyebrow" style="font-size:22px">Banned &mdash; only exists after the ride</div>
+                    <div class="chips" style="margin-top:24px;gap:11px">
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">tpep_dropoff_datetime</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">fare_amount</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">total_amount</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">tip_amount</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">tolls_amount</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">extra</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">mta_tax</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">improvement_surcharge</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">congestion_surcharge</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">airport_fee</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">payment_type</span>
+                        <span class="chip off" style="font-size:21px;padding:11px 16px">store_and_fwd_flag</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="reveal" style="--i:6;margin-top:48px;border-left:3px solid var(--gold-deep);padding:10px 0 10px 28px;max-width:1500px">
+                <p style="font-size:26px">
+                    <strong>* One honest asterisk.</strong> <span class="mono" style="color:var(--gold)">trip_distance</span> is the metered distance of a <em style="font-style:normal;color:var(--cream)">finished</em> trip. We use it, and we write the assumption down &mdash; in production it would be a routing estimate, not a fact.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>7 allowed</span><span class="line"></span>
+        <span>12 banned &middot; a test asserts none of them reach the model</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 12 — PHASE 1 DIVIDER
+     Speaker: William Vera
+     ======================================================================= -->
+<section class="slide divider bloom-b" aria-label="Phase 1: Foundation">
+    <div class="pad">
+        <div class="medallion reveal-blur" style="--i:0"><span>01</span></div>
+        <h1 class="reveal" style="--i:2">Foundation</h1>
+        <div class="checker reveal-wipe" style="--i:3;width:260px;margin-top:38px"></div>
+        <div class="who reveal" style="--i:4">
+            <b>William Vera</b> &nbsp;&middot;&nbsp; Paraguay
+            <div class="chips" style="margin-top:24px">
+                <span class="chip">T-101 &middot; Setup</span>
+                <span class="chip">T-102 &middot; Research</span>
+                <span class="chip">T-116 &middot; Ingestion</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot"><span>Phase 01 of 05</span><span class="line"></span><span>Build the rails</span></div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 13 — PHASE 1 CONTENT
+     Speaker: William Vera
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 1 detail">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 01 &middot; Foundation</span>
+            <h2 class="reveal" style="--i:1">Build the rails <em>before the train</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px">
+                <div class="card reveal" style="--i:3">
+                    <div class="tick"><b>T-101</b> <i>setup</i></div>
+                    <h3>Two trees, one seed</h3>
+                    <p><span class="mono" style="color:var(--gold)">src/</span> trains. <span class="mono" style="color:var(--gold)">api/</span> serves. They never import each other. One random seed, defined once.</p>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>T-102</b> <i>research</i></div>
+                    <h3>Learn before building</h3>
+                    <p>Read what worked for other authors, then map those features onto the columns the 2022 schema actually ships.</p>
+                </div>
+                <div class="card reveal" style="--i:5">
+                    <div class="tick"><b>T-116</b> <i>ingestion</i></div>
+                    <h3>One command fills the disk</h3>
+                    <p>Downloads all three files, skips what is already there, checks the row counts, and fails loudly instead of quietly.</p>
+                </div>
+            </div>
+
+            <!-- the constraint that shapes everything downstream -->
+            <div class="reveal" style="--i:7;margin-top:52px">
+                <svg viewBox="0 0 1704 232" class="fig" role="img" aria-label="Diagram: the src training tree runs on the host, the api tree runs in the container, and the only thing crossing between them is the serialized model artifact.">
+                    <rect x="2" y="30" width="720" height="176" rx="5" fill="rgba(240,190,74,.045)" stroke="#332F36" stroke-width="1.5" stroke-dasharray="6 6"/>
+                    <text x="26" y="18" class="dg-h">HOST &mdash; OFFLINE</text>
+                    <rect x="982" y="30" width="720" height="176" rx="5" fill="rgba(240,190,74,.045)" stroke="#332F36" stroke-width="1.5" stroke-dasharray="6 6"/>
+                    <text x="1006" y="18" class="dg-h">CONTAINER &mdash; ONLINE</text>
+
+                    <g>
+                        <rect x="34" y="70" width="200" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="56" y="104" class="dg-l">SRC /</text>
+                        <text x="56" y="130" class="dg-t">config</text>
+                        <text x="56" y="154" class="dg-t">data_utils</text>
+                        <rect x="258" y="70" width="200" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="280" y="106" class="dg-l">SRC /</text><text x="280" y="136" class="dg-t">preprocessing</text>
+                        <rect x="482" y="70" width="200" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="504" y="106" class="dg-l">SRC /</text><text x="504" y="136" class="dg-t">train</text>
+                    </g>
+                    <path d="M234,118 L252,118 M246,112 L256,118 L246,124" stroke="#B98C2C" stroke-width="2" fill="none"/>
+                    <path d="M458,118 L476,118 M470,112 L480,118 L470,124" stroke="#B98C2C" stroke-width="2" fill="none"/>
+
+                    <!-- the artifact: the only interface -->
+                    <rect x="762" y="62" width="180" height="112" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                    <text x="784" y="98" class="dg-l" style="fill:#F0BE4A">ARTIFACT</text>
+                    <text x="784" y="128" class="dg-t">model.pkl</text>
+                    <text x="784" y="152" class="dg-s">pipeline + model</text>
+                    <path d="M682,118 L756,118 M748,111 L760,118 L748,125" stroke="#F0BE4A" stroke-width="2.5" fill="none"/>
+                    <path d="M942,118 L1010,118 M1002,111 L1014,118 L1002,125" stroke="#F0BE4A" stroke-width="2.5" fill="none"/>
+                    <text x="852" y="200" class="dg-s" text-anchor="middle">bind mount</text>
+
+                    <g>
+                        <rect x="1020" y="70" width="196" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="1042" y="106" class="dg-l">API /</text><text x="1042" y="136" class="dg-t">main.py</text>
+                        <rect x="1240" y="70" width="196" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="1262" y="106" class="dg-l">APP / MODEL</text><text x="1262" y="136" class="dg-t">router</text>
+                        <rect x="1460" y="70" width="212" height="96" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="1482" y="106" class="dg-l">APP / MODEL</text><text x="1482" y="136" class="dg-t">services</text>
+                    </g>
+                    <path d="M1216,118 L1234,118 M1228,112 L1238,118 L1228,124" stroke="#B98C2C" stroke-width="2" fill="none"/>
+                    <path d="M1436,118 L1454,118 M1448,112 L1458,118 L1448,124" stroke="#B98C2C" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>The constraint</span><span class="line"></span>
+        <span>src/ is not in the Docker build context &mdash; the artifact is the only interface</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 14 — PHASE 2 DIVIDER
+     Speaker: Keyneth Lara
+     ======================================================================= -->
+<section class="slide divider bloom-b" aria-label="Phase 2: Data">
+    <div class="pad">
+        <div class="medallion reveal-blur" style="--i:0"><span>02</span></div>
+        <h1 class="reveal" style="--i:2">Data</h1>
+        <div class="checker reveal-wipe" style="--i:3;width:260px;margin-top:38px"></div>
+        <div class="who reveal" style="--i:4">
+            <b>Keyneth Lara</b> &nbsp;&middot;&nbsp; Colombia
+            <div class="chips" style="margin-top:24px">
+                <span class="chip">T-103 &middot; EDA</span>
+                <span class="chip">T-104 &middot; Preprocessing</span>
+                <span class="chip">T-105 &middot; Features</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot"><span>Phase 02 of 05</span><span class="line"></span><span>Where the project is won</span></div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 15 — PHASE 2 · EDA FINDINGS
+     Speaker: Keyneth Lara. All four numbers here are measured — see
+     ppt/tools/measure.py.
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 2: what the data told us">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 02 &middot; Data &mdash; T-103</span>
+            <h2 class="reveal" style="--i:1">What 3.6 million rides <em>told us</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="reveal" style="--i:3"><!--FIG_SKEW--><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg" class="fig" role="img" aria-label="Fare distribution before and after a log1p transform. Raw fare is a sharp spike near $10 with a tail reaching $6,966 and a skew of 31.6. After log1p the shape is a broad symmetric hump with a skew of 0.8."><path d="M0.0,231.8L13.9,214.6L27.8,103.7L41.7,40.0L55.6,51.8L69.5,91.6L83.4,130.6L97.3,159.1L111.2,179.3L125.1,193.1L139.0,201.9L152.9,209.3L166.8,213.5L180.7,216.6L194.6,218.2L208.5,219.4L222.4,220.7L236.3,222.3L250.2,224.4L264.1,226.0L277.9,226.9L291.8,228.0L305.7,228.4L319.6,229.5L333.5,229.9L347.4,230.0L361.3,183.0L375.2,230.5L389.1,230.7L403.0,230.9L416.9,230.8L430.8,230.8L444.7,230.0L458.6,230.8L472.5,230.7L486.4,231.0L500.3,231.4L514.2,231.3L528.1,231.6L542.0,231.4L542.0,232 L0.0,232 Z" fill="#8A6821" fill-opacity="0.18"/><path d="M0.0,231.8L13.9,214.6L27.8,103.7L41.7,40.0L55.6,51.8L69.5,91.6L83.4,130.6L97.3,159.1L111.2,179.3L125.1,193.1L139.0,201.9L152.9,209.3L166.8,213.5L180.7,216.6L194.6,218.2L208.5,219.4L222.4,220.7L236.3,222.3L250.2,224.4L264.1,226.0L277.9,226.9L291.8,228.0L305.7,228.4L319.6,229.5L333.5,229.9L347.4,230.0L361.3,183.0L375.2,230.5L389.1,230.7L403.0,230.9L416.9,230.8L430.8,230.8L444.7,230.0L458.6,230.8L472.5,230.7L486.4,231.0L500.3,231.4L514.2,231.3L528.1,231.6L542.0,231.4" fill="none" stroke="#8A6821" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><line x1="0" y1="232" x2="542.0" y2="232" stroke="#332F36" stroke-width="1"/><text x="0" y="262" class="fig-tick">$0</text><text x="271" y="262" text-anchor="middle" class="fig-tick">$40</text><text x="542" y="262" text-anchor="end" class="fig-tick">$80</text><line x1="361.3" y1="175.0" x2="361.3" y2="46" stroke="#7C7568" stroke-width="1"/><text x="371.3" y="54" class="fig-note">JFK $52 flat fare</text><text x="542" y="218" text-anchor="end" class="fig-note">tail runs to $6,966 &#8594;</text><path d="M638.0,231.8L651.9,232.0L665.8,232.0L679.7,232.0L693.6,232.0L707.5,232.0L721.4,232.0L735.3,232.0L749.2,232.0L763.1,220.7L777.0,220.1L790.9,207.1L804.8,143.5L818.7,174.4L832.6,105.0L846.5,40.0L860.4,56.5L874.3,85.3L888.2,117.0L902.1,117.5L915.9,132.7L929.8,164.2L943.7,168.9L957.6,189.6L971.5,194.9L985.4,198.6L999.3,207.4L1013.2,217.0L1027.1,159.7L1041.0,224.8L1054.9,223.6L1068.8,228.4L1082.7,230.6L1096.6,231.1L1110.5,231.3L1124.4,231.6L1138.3,231.7L1152.2,231.8L1166.1,231.9L1180.0,231.9L1180.0,232 L638.0,232 Z" fill="#F0BE4A" fill-opacity="0.16"/><path d="M638.0,231.8L651.9,232.0L665.8,232.0L679.7,232.0L693.6,232.0L707.5,232.0L721.4,232.0L735.3,232.0L749.2,232.0L763.1,220.7L777.0,220.1L790.9,207.1L804.8,143.5L818.7,174.4L832.6,105.0L846.5,40.0L860.4,56.5L874.3,85.3L888.2,117.0L902.1,117.5L915.9,132.7L929.8,164.2L943.7,168.9L957.6,189.6L971.5,194.9L985.4,198.6L999.3,207.4L1013.2,217.0L1027.1,159.7L1041.0,224.8L1054.9,223.6L1068.8,228.4L1082.7,230.6L1096.6,231.1L1110.5,231.3L1124.4,231.6L1138.3,231.7L1152.2,231.8L1166.1,231.9L1180.0,231.9" fill="none" stroke="#F0BE4A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><line x1="638.0" y1="232" x2="1180" y2="232" stroke="#332F36" stroke-width="1"/><text x="638.0" y="262" class="fig-tick">log1p</text><text x="1180" y="262" text-anchor="end" class="fig-tick">8.9</text><rect x="0" y="296" width="26" height="4" rx="2" fill="#8A6821"/><text x="36" y="305" class="fig-legend">fare_amount &#183; skew 31.6</text><rect x="638.0" y="296" width="26" height="4" rx="2" fill="#F0BE4A"/><text x="674.0" y="305" class="fig-legend">log1p(fare_amount) &#183; skew 0.8</text></svg><!--/FIG_SKEW--></div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:34px">
+                <div class="card reveal" style="--i:5;padding:26px 28px">
+                    <h3 style="font-size:26px">Cleaning <em style="font-style:normal;color:var(--gold)">is</em> the model</h3>
+                    <p style="font-size:21px">Distance against fare correlates <strong>0.01</strong> on the raw file. Drop the impossible rows and the same pair correlates <strong>0.95</strong>.</p>
+                </div>
+                <div class="card reveal" style="--i:6;padding:26px 28px">
+                    <h3 style="font-size:26px">Speed is the real filter</h3>
+                    <p style="font-size:21px">The worst record implies <strong>7,267,627 mph</strong>. Distance and duration each look fine alone &mdash; only together do they betray it.</p>
+                </div>
+                <div class="card reveal" style="--i:7;padding:26px 28px">
+                    <h3 style="font-size:26px">Rate codes are separate worlds</h3>
+                    <p style="font-size:21px">Standard <strong>$12.53</strong> / 16 min &middot; JFK <strong>$50.83</strong> / 52 min &middot; Newark <strong>$65.00</strong> / 44 min.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Both targets are heavily skewed</span><span class="line"></span>
+        <span>Train on log1p, report in dollars and minutes</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 16 — PHASE 2 · PIPELINE
+     Speaker: Keyneth Lara
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 2: preprocessing and features">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 02 &middot; Data &mdash; T-104 &amp; T-105</span>
+            <h2 class="reveal" style="--i:1">From raw rows to <em>one fitted object</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="reveal" style="--i:3">
+                <svg viewBox="0 0 1704 190" class="fig" role="img" aria-label="Pipeline: raw rows, then cleaning rules with the dropped count logged, then a split by time, then feature engineering, ending in one serializable fitted pipeline.">
+                    <g>
+                        <rect x="0" y="34" width="292" height="118" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="24" y="70" class="dg-l">01 &middot; RAW</text>
+                        <text x="24" y="102" class="dg-t">3,588,295 rows</text>
+                        <text x="24" y="128" class="dg-s">19 columns, as downloaded</text>
+
+                        <rect x="353" y="34" width="292" height="118" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="377" y="70" class="dg-l">02 &middot; CLEAN</text>
+                        <text x="377" y="102" class="dg-t">Rules, each counted</text>
+                        <text x="377" y="128" class="dg-s">so the cleaning cost is visible</text>
+
+                        <rect x="706" y="34" width="292" height="118" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                        <text x="730" y="70" class="dg-l" style="fill:#F0BE4A">03 &middot; SPLIT BY TIME</text>
+                        <text x="730" y="102" class="dg-t">Never at random</text>
+                        <text x="730" y="128" class="dg-s">the boundary lives in config</text>
+
+                        <rect x="1059" y="34" width="292" height="118" rx="4" fill="#141216" stroke="#332F36"/>
+                        <text x="1083" y="70" class="dg-l">04 &middot; FEATURES</text>
+                        <text x="1083" y="102" class="dg-t">Time, zone, distance</text>
+                        <text x="1083" y="128" class="dg-s">fitted on train only</text>
+
+                        <rect x="1412" y="34" width="292" height="118" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                        <text x="1436" y="70" class="dg-l" style="fill:#F0BE4A">05 &middot; ONE OBJECT</text>
+                        <text x="1436" y="102" class="dg-t">A single Pipeline</text>
+                        <text x="1436" y="128" class="dg-s">serializable, no loose steps</text>
+                    </g>
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M292,93 L347,93 M339,86 L351,93 L339,100"/>
+                        <path d="M645,93 L700,93 M692,86 L704,93 L692,100"/>
+                        <path d="M998,93 L1053,93 M1045,86 L1057,93 L1045,100"/>
+                        <path d="M1351,93 L1406,93 M1398,86 L1410,93 L1398,100"/>
+                    </g>
+                </svg>
+            </div>
+
+            <div class="split c2" style="margin-top:46px;height:auto">
+                <div class="reveal" style="--i:5">
+                    <div class="eyebrow" style="color:var(--gold)">The split &mdash; May 2022</div>
+                    <div style="display:flex;gap:20px;margin-top:20px">
+                        <div class="node hot" style="flex:1.9">
+                            <div class="nt">Train &middot; May 1 &ndash; 24</div>
+                            <div class="nb">2,847,337 rows</div><div class="ns">79.4%</div>
+                        </div>
+                        <div class="node" style="flex:1">
+                            <div class="nt">Test &middot; May 25 &ndash; 31</div>
+                            <div class="nb">740,815</div><div class="ns">20.6%</div>
+                        </div>
+                    </div>
+                    <p style="font-size:21px;margin-top:18px">A random split would let the model read the future. The last week is held back on purpose.</p>
+                </div>
+                <div class="reveal" style="--i:6">
+                    <div class="eyebrow" style="color:var(--gold)">What we build from what we have</div>
+                    <div class="chips" style="margin-top:20px">
+                        <span class="chip">hour &amp; weekday, cyclical</span>
+                        <span class="chip">weekend flag</span>
+                        <span class="chip">rush-hour flag</span>
+                        <span class="chip">US holidays</span>
+                        <span class="chip">borough &amp; service zone</span>
+                        <span class="chip">haversine between centroids</span>
+                        <span class="chip">ratio to trip_distance</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Fitted on train only</span><span class="line"></span>
+        <span>A test asserts no statistic is computed on test data</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 17 — PHASE 3 DIVIDER
+     Speaker: Marcos Villabasa
+     ======================================================================= -->
+<section class="slide divider bloom-b" aria-label="Phase 3: Modelling">
+    <div class="pad">
+        <div class="medallion reveal-blur" style="--i:0"><span>03</span></div>
+        <h1 class="reveal" style="--i:2">Modelling</h1>
+        <div class="checker reveal-wipe" style="--i:3;width:260px;margin-top:38px"></div>
+        <div class="who reveal" style="--i:4">
+            <b>Marcos Villabasa</b> &nbsp;&middot;&nbsp; Argentina
+            <div class="chips" style="margin-top:24px">
+                <span class="chip">T-106 &middot; Baselines</span>
+                <span class="chip">T-107 &middot; Boosting</span>
+                <span class="chip">T-108 &middot; MLP</span>
+                <span class="chip">T-109 &middot; Selection</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot"><span>Phase 03 of 05</span><span class="line"></span><span>Three families, in parallel</span></div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 18 — PHASE 3 · THREE FAMILIES
+     Speaker: Marcos Villabasa
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 3: three model families">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 03 &middot; Modelling</span>
+            <h2 class="reveal" style="--i:1">Three families, <em>run in parallel</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="reveal" style="--i:3">
+                <svg viewBox="0 0 1704 430" class="fig" role="img" aria-label="Diagram: the feature pipeline fans out to three model families run in parallel — baselines, gradient boosting and a multi-layer perceptron — which all fan back in to a single model-selection step.">
+                    <!-- source -->
+                    <rect x="0" y="164" width="230" height="106" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                    <text x="22" y="200" class="dg-l" style="fill:#F0BE4A">T-105</text>
+                    <text x="22" y="230" class="dg-t">Feature pipeline</text>
+                    <text x="22" y="254" class="dg-s">one fitted object</text>
+
+                    <!-- fan out -->
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M230,217 L300,217 L300,68 L370,68 M362,61 L374,68 L362,75"/>
+                        <path d="M230,217 L370,217 M362,210 L374,217 L362,224"/>
+                        <path d="M230,217 L300,217 L300,366 L370,366 M362,359 L374,366 L362,373"/>
+                    </g>
+
+                    <!-- the three families -->
+                    <rect x="376" y="14" width="520" height="108" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="400" y="50" class="dg-l">T-106 &middot; BASELINES</text>
+                    <text x="400" y="80" class="dg-t">Training mean &middot; Linear Regression &middot; Decision Tree</text>
+                    <text x="400" y="104" class="dg-s">the floor every other model has to beat</text>
+
+                    <rect x="376" y="163" width="520" height="108" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="400" y="199" class="dg-l">T-107 &middot; GRADIENT BOOSTING</text>
+                    <text x="400" y="229" class="dg-t">LightGBM &nbsp;&middot;&nbsp; XGBoost</text>
+                    <text x="400" y="253" class="dg-s">documented, reproducible hyperparameter search</text>
+
+                    <rect x="376" y="312" width="520" height="108" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="400" y="348" class="dg-l">T-108 &middot; NEURAL</text>
+                    <text x="400" y="378" class="dg-t">Multi-layer perceptron</text>
+                    <text x="400" y="402" class="dg-s">scaling inside the pipeline, early stopping on train</text>
+
+                    <!-- fan in -->
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M896,68 L966,68 L966,217 L1036,217 M1028,210 L1040,217 L1028,224"/>
+                        <path d="M896,217 L1036,217"/>
+                        <path d="M896,366 L966,366 L966,217"/>
+                    </g>
+
+                    <!-- selection -->
+                    <rect x="1042" y="150" width="330" height="134" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                    <text x="1066" y="186" class="dg-l" style="fill:#F0BE4A">T-109 &middot; SELECTION</text>
+                    <text x="1066" y="216" class="dg-t">One comparison table</text>
+                    <text x="1066" y="242" class="dg-s">every model &times; both targets</text>
+                    <text x="1066" y="266" class="dg-s">accuracy weighed against latency</text>
+
+                    <path d="M1372,217 L1442,217 M1434,210 L1446,217 L1434,224" stroke="#F0BE4A" stroke-width="2.5" fill="none"/>
+                    <rect x="1448" y="164" width="256" height="106" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                    <text x="1472" y="200" class="dg-l" style="fill:#F0BE4A">ARTIFACT</text>
+                    <text x="1472" y="230" class="dg-t">models/model.pkl</text>
+                    <text x="1472" y="254" class="dg-s">self-contained</text>
+                </svg>
+            </div>
+
+            <div class="reveal" style="--i:6;margin-top:38px;border-left:3px solid var(--gold-deep);padding:8px 0 8px 28px">
+                <p style="font-size:26px">Both targets, every family, the same splits and the same metrics &mdash; so the comparison at the end is honest. The MLP does not wait for boosting; all three start from T&#8209;105 at once.</p>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>MAE &middot; RMSE &middot; MAPE &middot; R&sup2;</span><span class="line"></span>
+        <span>plus training time and single-row inference time</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 19 — PHASE 3 · SELECTION
+     Speaker: Marcos Villabasa
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 3: model selection">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 03 &middot; Modelling &mdash; T-109</span>
+            <h2 class="reveal" style="--i:1">Accuracy is <em>only half the score</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="split c2">
+                <div class="reveal" style="--i:3">
+                    <div class="card" style="height:100%">
+                        <div class="tick"><b>How we choose</b></div>
+                        <h3>A stated trade-off, not a leaderboard</h3>
+                        <p>The winner is picked on accuracy <em style="font-style:normal;color:var(--gold)">and</em> inference latency together. A model that is slightly better and far slower does not win &mdash; it has to answer a live request.</p>
+                        <div class="chips" style="margin-top:26px">
+                            <span class="chip">MAE</span><span class="chip">RMSE</span><span class="chip">MAPE</span>
+                            <span class="chip">R&sup2;</span><span class="chip">train time</span><span class="chip">inference time</span>
+                        </div>
+                        <p style="margin-top:26px;font-size:21px">Then error analysis on the winner: residuals by hour, by borough, by trip length, and on the airport rate codes.</p>
+                    </div>
+                </div>
+                <div class="reveal" style="--i:4">
+                    <div class="card" style="height:100%;border-color:var(--gold-edge)">
+                        <div class="tick"><b>The artifact</b> <i>the acceptance test</i></div>
+                        <h3>It has to survive on its own</h3>
+                        <p><span class="mono" style="color:var(--gold)">models/model.pkl</span> carries the fitted preprocessing pipeline, the model, the exact feature order, and a version string.</p>
+                        <div class="node hot" style="margin-top:26px">
+                            <div class="nt">The test</div>
+                            <div class="nb">It loads and predicts in a fresh interpreter with <span class="mono">src/</span> absent from the path.</div>
+                            <div class="ns" style="margin-top:10px">Because inside the container, <span class="mono">src/</span> does not exist.</div>
+                        </div>
+                        <p style="margin-top:24px;font-size:21px">Whichever library wins also becomes a pinned line in <span class="mono" style="color:var(--gold)">api/requirements.txt</span>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Metrics in dollars and minutes</span><span class="line"></span>
+        <span>never in log units</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 20 — PHASE 4 DIVIDER
+     Speaker: Mauricio Mora
+     ======================================================================= -->
+<section class="slide divider bloom-b" aria-label="Phase 4: Serving">
+    <div class="pad">
+        <div class="medallion reveal-blur" style="--i:0"><span>04</span></div>
+        <h1 class="reveal" style="--i:2">Serving</h1>
+        <div class="checker reveal-wipe" style="--i:3;width:260px;margin-top:38px"></div>
+        <div class="who reveal" style="--i:4">
+            <b>Mauricio Mora</b> &nbsp;&middot;&nbsp; Colombia
+            <div class="chips" style="margin-top:24px">
+                <span class="chip">T-110 &middot; API</span>
+                <span class="chip">T-111 &middot; Dashboard</span>
+                <span class="chip">T-112 &middot; Tests</span>
+                <span class="chip">T-113 &middot; Latency</span>
+                <span class="chip">T-114 &middot; Docker</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot"><span>Phase 04 of 05</span><span class="line"></span><span>From a file to a service</span></div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 21 — PHASE 4 · SYSTEM ARCHITECTURE
+     Speaker: Mauricio Mora. The end-to-end diagram.
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 4: system architecture">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 04 &middot; Serving &mdash; T-110</span>
+            <h2 class="reveal" style="--i:1">One artifact is <em>the whole interface</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="reveal" style="--i:3">
+                <svg viewBox="0 0 1704 540" class="fig" role="img" aria-label="End-to-end architecture: on the host, the dataset feeds preprocessing and training, which writes models slash model.pkl. That directory is bind-mounted into the container, where FastAPI loads the model once at startup and serves the predict, health and docs endpoints. A dashboard and the user call the API over HTTP; the dashboard never loads the model itself.">
+                    <!-- ===== HOST ===== -->
+                    <rect x="2" y="34" width="560" height="470" rx="6" fill="rgba(240,190,74,.04)" stroke="#332F36" stroke-width="1.5" stroke-dasharray="6 6"/>
+                    <text x="26" y="22" class="dg-h">HOST &mdash; TRAINING, RUN ONCE</text>
+
+                    <rect x="40" y="76" width="230" height="94" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="62" y="110" class="dg-l">DATASET /</text>
+                    <text x="62" y="140" class="dg-t">parquet &middot; csv &middot; shp</text>
+
+                    <rect x="40" y="204" width="230" height="94" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="62" y="238" class="dg-l">SRC /</text>
+                    <text x="62" y="268" class="dg-t">preprocessing</text>
+
+                    <rect x="40" y="332" width="230" height="94" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="62" y="366" class="dg-l">SRC /</text>
+                    <text x="62" y="396" class="dg-t">train</text>
+
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M155,170 L155,198 M148,190 L155,202 L162,190"/>
+                        <path d="M155,298 L155,326 M148,318 L155,330 L162,318"/>
+                    </g>
+
+                    <rect x="322" y="204" width="200" height="222" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2.5"/>
+                    <text x="344" y="240" class="dg-l" style="fill:#F0BE4A">MODELS /</text>
+                    <text x="344" y="272" class="dg-t">model.pkl</text>
+                    <text x="344" y="306" class="dg-s">fitted pipeline</text>
+                    <text x="344" y="332" class="dg-s">+ model(s)</text>
+                    <text x="344" y="358" class="dg-s">+ feature order</text>
+                    <text x="344" y="384" class="dg-s">+ version string</text>
+                    <path d="M270,379 L316,379 L316,340 M308,332 L320,340 L308,348" stroke="#F0BE4A" stroke-width="2.5" fill="none"/>
+
+                    <!-- ===== the boundary ===== -->
+                    <path d="M522,315 L640,315 M630,306 L644,315 L630,324" stroke="#F0BE4A" stroke-width="3" fill="none"/>
+                    <text x="582" y="288" class="dg-l" style="fill:#F0BE4A" text-anchor="middle">BIND MOUNT</text>
+                    <text x="582" y="352" class="dg-s" text-anchor="middle">./models &rarr; /app/models</text>
+
+                    <!-- ===== CONTAINER ===== -->
+                    <rect x="650" y="34" width="700" height="470" rx="6" fill="rgba(240,190,74,.04)" stroke="#332F36" stroke-width="1.5" stroke-dasharray="6 6"/>
+                    <text x="674" y="22" class="dg-h">CONTAINER &mdash; SERVING, ALWAYS ON</text>
+
+                    <rect x="690" y="76" width="620" height="104" rx="4" fill="#1A171C" stroke="#F0BE4A" stroke-width="2"/>
+                    <text x="712" y="110" class="dg-l" style="fill:#F0BE4A">FASTAPI &middot; uvicorn main:app</text>
+                    <text x="712" y="142" class="dg-t">Model loaded once at startup &mdash; not per request</text>
+                    <text x="712" y="166" class="dg-s">main.py &rarr; app/model/router.py &rarr; app/model/services.py</text>
+
+                    <rect x="690" y="212" width="196" height="122" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="712" y="246" class="dg-l">POST</text>
+                    <text x="712" y="278" class="dg-t">/predict</text>
+                    <text x="712" y="304" class="dg-s">zone IDs in,</text>
+                    <text x="712" y="326" class="dg-s">fare + minutes out</text>
+
+                    <rect x="902" y="212" width="196" height="122" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="924" y="246" class="dg-l">GET</text>
+                    <text x="924" y="278" class="dg-t">/health</text>
+                    <text x="924" y="304" class="dg-s">is the model up,</text>
+                    <text x="924" y="326" class="dg-s">and which version</text>
+
+                    <rect x="1114" y="212" width="196" height="122" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="1136" y="246" class="dg-l">GET</text>
+                    <text x="1136" y="278" class="dg-t">/docs</text>
+                    <text x="1136" y="304" class="dg-s">interactive</text>
+                    <text x="1136" y="326" class="dg-s">contract</text>
+
+                    <rect x="690" y="366" width="620" height="104" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="712" y="400" class="dg-l">PYDANTIC &middot; app/model/schema.py</text>
+                    <text x="712" y="432" class="dg-t">LocationID 1&ndash;265 &middot; passenger_count &ge; 1 &middot; known RatecodeID</text>
+                    <text x="712" y="456" class="dg-s">bad input returns 422 with a useful message &mdash; never a 500</text>
+
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M788,180 L788,206 M781,198 L788,210 L795,198"/>
+                        <path d="M788,334 L788,360 M781,352 L788,364 L795,352"/>
+                    </g>
+
+                    <!-- ===== CLIENTS ===== -->
+                    <rect x="1400" y="140" width="300" height="128" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="1424" y="176" class="dg-l">T-111 &middot; DASHBOARD</text>
+                    <text x="1424" y="208" class="dg-t">Zone picker + map</text>
+                    <text x="1424" y="234" class="dg-s">NYC choropleth from</text>
+                    <text x="1424" y="256" class="dg-s">the same shapefile</text>
+
+                    <rect x="1400" y="308" width="300" height="106" rx="4" fill="#141216" stroke="#332F36"/>
+                    <text x="1424" y="344" class="dg-l">CLIENT</text>
+                    <text x="1424" y="376" class="dg-t">Passenger &middot; driver</text>
+                    <text x="1424" y="400" class="dg-s">operator dashboards</text>
+
+                    <!-- the dashboard talks to the API over HTTP, into the FastAPI box -->
+                    <g stroke="#B98C2C" stroke-width="2" fill="none">
+                        <path d="M1396,176 L1356,176 L1356,128 L1322,128 M1330,121 L1316,128 L1330,135"/>
+                        <path d="M1550,304 L1550,274 M1543,282 L1550,270 L1557,282"/>
+                    </g>
+                    <text x="1358" y="98" class="dg-s" text-anchor="middle">HTTP</text>
+                    <text x="1566" y="296" class="dg-s">HTTP</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>The dashboard never loads the model</span><span class="line"></span>
+        <span>it asks the API, like any other client</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 22 — PHASE 4 · HARDENING
+     Speaker: Mauricio Mora
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 4: dashboard, tests, latency, Docker">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 04 &middot; Serving &mdash; T-111 to T-114</span>
+            <h2 class="reveal" style="--i:1">Make it real, <em>then make it hold</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:32px 34px">
+                <div class="card reveal" style="--i:3">
+                    <div class="tick"><b>T-111</b> <i>frontend</i></div>
+                    <h3>The demo people actually see</h3>
+                    <p>Pick a pickup zone, a dropoff zone and a time. Get both numbers, drawn on an NYC choropleth. If the API is down, it says so &mdash; it does not show a stack trace.</p>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>T-112</b> <i>tests</i></div>
+                    <h3>Proof, not confidence</h3>
+                    <p>Unit tests on every cleaning rule, a leakage test that fails if a banned column reaches the model, and integration tests hitting <span class="mono" style="color:var(--gold)">/predict</span> and <span class="mono" style="color:var(--gold)">/health</span>.</p>
+                </div>
+                <div class="card reveal" style="--i:5">
+                    <div class="tick"><b>T-113</b> <i>latency</i></div>
+                    <h3>A budget, and a measurement</h3>
+                    <p>Load test reporting p50, p95 and p99. We state the budget first, then measure whether we meet it &mdash; and optimise once, with numbers before and after.</p>
+                </div>
+                <div class="card reveal" style="--i:6">
+                    <div class="tick"><b>T-114</b> <i>devops</i></div>
+                    <h3>One command, any machine</h3>
+                    <p>Pinned requirements including the winning model&rsquo;s library, a healthcheck wired to <span class="mono" style="color:var(--gold)">/health</span>, the dashboard as its own service, and <span class="mono" style="color:var(--gold)">make run</span>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Retrain on the host</span><span class="line"></span>
+        <span>restart the container &mdash; no rebuild</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 23 — PHASE 5 DIVIDER
+     Speaker: Néstor Mamani
+     ======================================================================= -->
+<section class="slide divider bloom-b" aria-label="Phase 5: Delivery">
+    <div class="pad">
+        <div class="medallion reveal-blur" style="--i:0"><span>05</span></div>
+        <h1 class="reveal" style="--i:2">Delivery</h1>
+        <div class="checker reveal-wipe" style="--i:3;width:260px;margin-top:38px"></div>
+        <div class="who reveal" style="--i:4">
+            <b>N&eacute;stor Mamani</b> &nbsp;&middot;&nbsp; Peru
+            <div class="chips" style="margin-top:24px">
+                <span class="chip">T-119 &middot; Peer review</span>
+                <span class="chip">T-115 &middot; Docs &amp; demo</span>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot"><span>Phase 05 of 05</span><span class="line"></span><span>Ship it, then prove it</span></div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 24 — PHASE 5 CONTENT
+     Speaker: Néstor Mamani
+     ======================================================================= -->
+<section class="slide" aria-label="Phase 5 detail">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase 05 &middot; Delivery</span>
+            <h2 class="reveal" style="--i:1">Show it to someone <em>who can break it</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="split c2" style="height:auto">
+                <div class="card reveal" style="--i:3">
+                    <div class="tick"><b>T-119</b> <i>peer review</i></div>
+                    <h3>A clean machine and another team</h3>
+                    <p>We hand the project to a team that has never seen it and watch them run <span class="mono" style="color:var(--gold)">make run</span>. Every piece of feedback gets written down and triaged: fix now, backlog, or won&rsquo;t do.</p>
+                    <p style="margin-top:20px;font-size:21px">The fix-now list has to be closed before we call the project done.</p>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>T-115</b> <i>documentation</i></div>
+                    <h3>Anyone can reproduce it</h3>
+                    <p>Setup, dataset download, training, the API, the dashboard, the tests &mdash; each one an exact command. Plus the results table and the latency numbers.</p>
+                    <p style="margin-top:20px;font-size:21px">And a rehearsed demo script, so the live run is not a surprise.</p>
+                </div>
+            </div>
+
+            <div class="reveal" style="--i:6;margin-top:46px">
+                <div class="eyebrow" style="color:var(--gold)">Limitations we write down, rather than hide</div>
+                <div class="chips" style="margin-top:20px">
+                    <span class="chip">trained on a single month</span>
+                    <span class="chip">trip_distance is an accepted approximation</span>
+                    <span class="chip">zone centroids, not true coordinates</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Feedback triaged</span><span class="line"></span>
+        <span>Fix-now items closed before T-115 is done</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 25 — PHASE X · OPTIONAL
+     Speaker: Néstor Mamani
+     ======================================================================= -->
+<section class="slide" aria-label="Phase X: optional improvements">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Phase X &middot; Optional</span>
+            <h2 class="reveal" style="--i:1">Only if it <em>earns its place</em></h2>
+            <div class="checker reveal-wipe" style="--i:2"></div>
+        </div>
+        <div class="sbody">
+            <div class="split c2" style="height:auto">
+                <div class="card reveal" style="--i:3;border-style:dashed">
+                    <div class="tick"><b>T-117</b> <i>weather</i></div>
+                    <h3>Does rain change the ride?</h3>
+                    <p>Historical hourly NYC weather, cached locally and joined on the pickup hour. Then retrain, and report the difference against our chosen model.</p>
+                    <div class="node" style="margin-top:26px;border-style:dashed">
+                        <div class="nt">The condition</div>
+                        <div class="nb" style="font-size:20px">Adopted only if the gain is worth a live weather call sitting inside every request.</div>
+                    </div>
+                </div>
+                <div class="card reveal" style="--i:4">
+                    <div class="tick"><b>T-118</b> <i>demand</i></div>
+                    <h3>Where will the next ride be?</h3>
+                    <p>Pickups counted per zone per time bucket, then a time-series model that predicts demand by region &mdash; shown on the same NYC map.</p>
+                    <div class="node" style="margin-top:26px;border-style:dashed">
+                        <div class="nt">The condition</div>
+                        <div class="nb" style="font-size:20px">A separate module and notebook. It must not touch the fare and duration pipeline.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="reveal" style="--i:6;margin-top:44px;border-left:3px solid var(--gold-deep);padding:8px 0 8px 28px">
+                <p style="font-size:26px">Both are off the critical path. Neither one is allowed to put the main deliverable at risk.</p>
+            </div>
+        </div>
+    </div>
+    <div class="sfoot">
+        <span>Nice to have</span><span class="line"></span><span>never a dependency</span>
+    </div>
+</section>
+
+<!-- =======================================================================
+     SLIDE 26 — CLOSING
+     Speaker: Néstor Mamani
+     ======================================================================= -->
+<section class="slide bloom-c" aria-label="Closing">
+    <div class="pad">
+        <div class="shead">
+            <span class="eyebrow reveal" style="--i:0">Next stop</span>
+        </div>
+        <div class="sbody" style="display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2">
+            <div class="checker reveal-wipe" style="--i:1;width:300px;margin-bottom:46px"></div>
+            <h1 class="reveal-blur" style="--i:2;font-family:var(--font-display);font-weight:800;font-size:150px;line-height:.94;letter-spacing:-.026em;color:var(--cream)">
+                How much?<br><span style="color:var(--gold)">How long?</span>
+            </h1>
+            <p class="reveal" style="--i:4;font-size:40px;color:var(--cream);margin-top:44px;font-weight:500">
+                Next time, we answer both &mdash; live.
+            </p>
+            <p class="reveal" style="--i:5;font-size:27px;margin-top:18px;max-width:1000px">
+                Thank you. Questions are welcome.
+            </p>
+        </div>
+    </div>
+
+    <div class="skyline-wrap"><!--SKYLINE--><svg viewBox="0 0 1866 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" class="skyline" aria-hidden="true"><g fill="currentColor"><path d="M0,220L0,200L0,150L46,150L46,132L92,132L92,162L120,162L120,105L168,105L168,122L196,122L196,80L238,80L238,144L262,144L262,96L300,96L300,50L318,50L318,114L352,114L352,72L396,72L396,136L424,136L424,58L470,58L470,100L500,100L500,140L534,140L534,86L580,86L580,124L604,124L604,40L652,40L652,102L686,102L686,68L724,68L724,134L760,134L760,90L800,90L800,146L826,146L826,48L874,48L874,108L906,108L906,76L948,76L948,140L980,140L980,62L1024,62L1024,126L1052,126L1052,32L1098,32L1098,98L1132,98L1132,66L1176,66L1176,132L1208,132L1208,84L1252,84L1252,144L1280,144L1280,54L1326,54L1326,112L1360,112L1360,74L1404,74L1404,138L1436,138L1436,60L1480,60L1480,106L1512,106L1512,42L1558,42L1558,120L1592,120L1592,78L1636,78L1636,148L1666,148L1666,72L1712,72L1712,110L1744,110L1744,88L1788,88L1788,128L1820,128L1820,66L1866,66L1866,200L1866,220Z"/><path d="M306,50L309,4L312,50Z"/><path d="M625,40L628,-6L631,40Z"/><path d="M1072,32L1075,-14L1078,32Z"/><path d="M1532,42L1535,-4L1538,42Z"/></g><g fill="#0B0A0C" opacity=".55"><rect x="12" y="148" width="4" height="7"/><rect x="46" y="122" width="4" height="7"/><rect x="148" y="174" width="4" height="7"/><rect x="182" y="148" width="4" height="7"/><rect x="216" y="122" width="4" height="7"/><rect x="318" y="174" width="4" height="7"/><rect x="352" y="148" width="4" height="7"/><rect x="386" y="122" width="4" height="7"/><rect x="488" y="174" width="4" height="7"/><rect x="522" y="148" width="4" height="7"/><rect x="556" y="122" width="4" height="7"/><rect x="658" y="174" width="4" height="7"/><rect x="692" y="148" width="4" height="7"/><rect x="726" y="122" width="4" height="7"/><rect x="828" y="174" width="4" height="7"/><rect x="862" y="148" width="4" height="7"/><rect x="896" y="122" width="4" height="7"/><rect x="998" y="174" width="4" height="7"/><rect x="1032" y="148" width="4" height="7"/><rect x="1066" y="122" width="4" height="7"/><rect x="1168" y="174" width="4" height="7"/><rect x="1202" y="148" width="4" height="7"/><rect x="1236" y="122" width="4" height="7"/><rect x="1338" y="174" width="4" height="7"/><rect x="1372" y="148" width="4" height="7"/><rect x="1406" y="122" width="4" height="7"/><rect x="1508" y="174" width="4" height="7"/><rect x="1542" y="148" width="4" height="7"/><rect x="1576" y="122" width="4" height="7"/><rect x="1678" y="174" width="4" height="7"/><rect x="1712" y="148" width="4" height="7"/><rect x="1746" y="122" width="4" height="7"/><rect x="1848" y="174" width="4" height="7"/></g></svg><!--/SKYLINE--></div>
+
+    <div class="sfoot" style="z-index:3">
+        <span>Keyneth Lara</span><span>William Vera</span><span>Marcos Villabasa</span>
+        <span>Mauricio Mora</span><span>N&eacute;stor Mamani</span>
+        <span style="color:var(--gold-deep)">Franco Diosquez &middot; Lead</span>
+    </div>
+</section>
+
+</main>
+</div>
+
+<!-- deck chrome: outside the stage, so it never scales with the slides -->
+<div class="counter"><b id="cNow">01</b> / <span id="cAll">26</span></div>
+<div class="hint" id="hint">&larr; &rarr; to navigate &middot; F fullscreen</div>
+<div class="edit-hotzone" aria-hidden="true"></div>
+<button class="edit-toggle" id="editToggle" title="Edit mode (E)" aria-label="Toggle inline edit mode">&#9998;</button>
+
+<script>
+/* ===========================================================================
+   SLIDE PRESENTATION CONTROLLER
+   Fixed 16:9 stage: slides are authored at 1920x1080 and the whole stage is
+   scaled by a single transform, so nothing ever reflows per device.
+   =========================================================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides  = Array.from(document.querySelectorAll('.slide'));
+        this.stage   = document.getElementById('deckStage');
+        this.bar     = document.getElementById('progress');
+        this.now     = document.getElementById('cNow');
+        this.current = 0;
+        this.wheelLock = false;
+
+        document.getElementById('cAll').textContent = String(this.slides.length).padStart(2, '0');
+
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupWheelNav();
+        this.restore();
+        this.setupHashNav();
+        this.show(this.current);
+        this.fadeHint();
+    }
+
+    /* --- deep links: index.html#12 opens slide 12 ------------------------- */
+    setupHashNav() {
+        const fromHash = () => {
+            const n = parseInt(location.hash.replace('#', ''), 10);
+            return isNaN(n) ? null : Math.max(0, Math.min(n - 1, this.slides.length - 1));
+        };
+        const h = fromHash();
+        if (h !== null) this.current = h;
+        window.addEventListener('hashchange', () => {
+            const n = fromHash();
+            if (n !== null && n !== this.current) this.show(n);
+        });
+    }
+
+    /* --- scale the whole 1920x1080 stage to fit the window ---------------- */
+    setupStageScale() {
+        const scale = () => {
+            const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            const x = (window.innerWidth  - 1920 * f) / 2;
+            const y = (window.innerHeight - 1080 * f) / 2;
+            this.stage.style.transform = `translate(${x}px, ${y}px) scale(${f})`;
+        };
+        scale();
+        window.addEventListener('resize', scale);
+    }
+
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+            if (e.target.getAttribute('contenteditable') === 'true') return;
+            switch (e.key) {
+                case 'ArrowRight': case 'ArrowDown': case ' ': case 'PageDown':
+                    e.preventDefault(); this.next(); break;
+                case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
+                    e.preventDefault(); this.prev(); break;
+                case 'Home': e.preventDefault(); this.show(0); break;
+                case 'End':  e.preventDefault(); this.show(this.slides.length - 1); break;
+                case 'f': case 'F':
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    else document.documentElement.requestFullscreen();
+                    break;
+            }
+        });
+    }
+
+    /* --- swipe, so the deck works from a phone --------------------------- */
+    setupTouchNav() {
+        let x0 = null, y0 = null;
+        document.addEventListener('touchstart', (e) => {
+            x0 = e.changedTouches[0].clientX;
+            y0 = e.changedTouches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (x0 === null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            const dy = e.changedTouches[0].clientY - y0;
+            if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)) {
+                dx < 0 ? this.next() : this.prev();
+            }
+            x0 = y0 = null;
+        }, { passive: true });
+    }
+
+    /* --- wheel / trackpad, throttled so one gesture moves one slide ------- */
+    setupWheelNav() {
+        window.addEventListener('wheel', (e) => {
+            if (this.wheelLock || Math.abs(e.deltaY) < 18) return;
+            this.wheelLock = true;
+            e.deltaY > 0 ? this.next() : this.prev();
+            setTimeout(() => { this.wheelLock = false; }, 700);
+        }, { passive: true });
+    }
+
+    next() { this.show(this.current + 1); }
+    prev() { this.show(this.current - 1); }
+
+    show(i) {
+        this.current = Math.max(0, Math.min(i, this.slides.length - 1));
+        this.slides.forEach((s, n) => {
+            const on = n === this.current;
+            s.classList.toggle('active', on);
+            s.classList.toggle('visible', on);
+        });
+        this.bar.style.width = ((this.current + 1) / this.slides.length * 100) + '%';
+        this.now.textContent = String(this.current + 1).padStart(2, '0');
+        try { localStorage.setItem('nyctaxi-deck-slide', this.current); } catch (err) {}
+    }
+
+    /* resume where the presenter left off after an accidental reload */
+    restore() {
+        try {
+            const n = parseInt(localStorage.getItem('nyctaxi-deck-slide'), 10);
+            if (!isNaN(n) && n > 0 && n < this.slides.length) this.current = n;
+        } catch (err) {}
+    }
+
+    fadeHint() {
+        const h = document.getElementById('hint');
+        setTimeout(() => { h.style.opacity = '0'; }, 5200);
+    }
+}
+
+/* ===========================================================================
+   INLINE TEXT EDITING
+   Hidden by default. Hover the top-left corner or press E. Edits are saved to
+   localStorage so a fix made during rehearsal survives a reload.
+   Hover uses JS with a grace period -- a CSS `~` sibling selector breaks here,
+   because pointer-events:none on the button severs the hover chain.
+   =========================================================================== */
+class InlineEditor {
+    constructor(deck) {
+        this.deck = deck;
+        this.isActive = false;
+        this.sel = '.slide h1, .slide h2, .slide h3, .slide p, .slide .eyebrow, ' +
+                   '.slide .chip, .slide .nb, .slide .ns, .slide .nt, .slide .l, ' +
+                   '.slide .v, .slide .sfoot span, .slide .tick b, .slide .tick i';
+        this.restore();
+    }
+
+    toggle() {
+        this.isActive = !this.isActive;
+        const btn = document.getElementById('editToggle');
+        btn.classList.toggle('active', this.isActive);
+        document.querySelectorAll(this.sel).forEach((el, i) => {
+            el.setAttribute('contenteditable', this.isActive ? 'true' : 'false');
+            if (this.isActive && !el.dataset.ek) el.dataset.ek = 'e' + i;
+        });
+        if (!this.isActive) this.save();
+    }
+
+    save() {
+        const store = {};
+        document.querySelectorAll('[data-ek]').forEach((el) => { store[el.dataset.ek] = el.innerHTML; });
+        try { localStorage.setItem('nyctaxi-deck-edits', JSON.stringify(store)); } catch (err) {}
+    }
+
+    restore() {
+        let store;
+        try { store = JSON.parse(localStorage.getItem('nyctaxi-deck-edits') || '{}'); } catch (err) { return; }
+        const keys = Object.keys(store);
+        if (!keys.length) return;
+        document.querySelectorAll(this.sel).forEach((el, i) => {
+            const k = 'e' + i;
+            if (store[k] !== undefined) { el.dataset.ek = k; el.innerHTML = store[k]; }
+        });
+    }
+}
+
+const deck   = new SlidePresentation();
+const editor = new InlineEditor(deck);
+
+/* --- three ways into edit mode: the button, the hotzone, the E key ------- */
+const hotzone    = document.querySelector('.edit-hotzone');
+const editToggle = document.getElementById('editToggle');
+let hideTimeout  = null;
+
+editToggle.addEventListener('click', () => editor.toggle());
+hotzone.addEventListener('click', () => editor.toggle());
+
+hotzone.addEventListener('mouseenter', () => {
+    clearTimeout(hideTimeout);
+    editToggle.classList.add('show');
+});
+hotzone.addEventListener('mouseleave', () => {
+    hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove('show');
+    }, 400);
+});
+editToggle.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+editToggle.addEventListener('mouseleave', () => {
+    hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove('show');
+    }, 400);
+});
+
+document.addEventListener('keydown', (e) => {
+    if ((e.key === 'e' || e.key === 'E') && e.target.getAttribute('contenteditable') !== 'true') {
+        editor.toggle();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); editor.save(); }
+});
+</script>
+</body>
+</html>
