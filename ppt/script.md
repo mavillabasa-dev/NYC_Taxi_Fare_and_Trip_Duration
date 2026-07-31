@@ -50,7 +50,7 @@ pace. That leaves **45 seconds** inside the 10-minute limit.
 
 ### [SLIDE 1] Title
 
-Good morning, everyone. We are the NYC Taxi team.
+Good night, everyone. We are the NYC Taxi team.
 My name is Keyneth.
 Today we want to ask you two very simple questions.
 **How much?** And **how long?**
@@ -96,6 +96,7 @@ The company gets better prices and better planning.
 
 ### [SLIDE 7] The team
 
+Now, let's talk about the amazing team behind this project. 
 We are six people from four countries.
 Each of us presents one part today.
 
@@ -114,7 +115,7 @@ And a shapefile with the real map.
 ### [SLIDE 10] There are no coordinates
 
 Here is our first surprise. There are **no coordinates**.
-New York removed latitude and longitude in 2016.
+New York TLC removed latitude and longitude in 2016.
 We only get a zone number, from one to two hundred sixty-five.
 So we build the coordinates ourselves — from this map.
 
@@ -126,7 +127,7 @@ The tip, the total, the drop-off time — all of that exists only
 **after** the ride ends. So we cannot use it.
 Only seven columns are honest.
 
-→ *Hand off:* "William will show you how we started."
+→ *Hand off:* "To tell you more about how we approached this project, here's William. He will show you how we started."
 
 ---
 
