@@ -233,13 +233,13 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** T-103 — **Artifact:** `src/preprocessing.py`, `notebooks/02_preprocessing.ipynb`
 
-- [ ] Cleaning rules from T-103 implemented as pure, individually testable functions.
-- [ ] All banned columns dropped in a single explicit step; a test asserts none of
+- [x] Cleaning rules from T-103 implemented as pure, individually testable functions.
+- [x] All banned columns dropped in a single explicit step; a test asserts none of
       them survive into the feature frame.
-- [ ] **Temporal split**, not random: train on the first ~3 weeks of May 2022, test on
+- [x] **Temporal split**, not random: train on the first ~3 weeks of May 2022, test on
       the last week. Split boundary is a constant in `src/config.py`.
-- [ ] Rows dropped are counted and logged by rule, so the cleaning cost is visible.
-- [ ] Processed dataset written to `dataset/` in parquet.
+- [x] Rows dropped are counted and logged by rule, so the cleaning cost is visible.
+- [x] Processed dataset written to `dataset/` in parquet.
 
 ### T-105 · `DATA` · Feature engineering pipeline
 
