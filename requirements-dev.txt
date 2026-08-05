@@ -2,6 +2,7 @@
 # `make test` runs pytest from the repo root over tests/ and api/tests/.
 
 -r requirements.txt
+-r api/requirements.txt
 
 pytest>=8.2
 httpx>=0.27          # FastAPI TestClient dependency
