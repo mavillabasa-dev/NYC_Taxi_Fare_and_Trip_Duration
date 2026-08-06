@@ -314,6 +314,11 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** T-109
 
+> **Implementation status:** the API contract, validation, startup loading, health
+> endpoint and integration tests are implemented against a small fixture artifact.
+> Keep this ticket open until T-109 produces a real bundle with `model`,
+> `feature_order` and `version`, and that artifact passes the same tests.
+
 - [ ] `POST /predict` accepts `PULocationID`, `DOLocationID`, `tpep_pickup_datetime`,
       `passenger_count`, `RatecodeID`, `trip_distance` — **zone IDs, not lat/lon** —
       and returns predicted fare and duration.
