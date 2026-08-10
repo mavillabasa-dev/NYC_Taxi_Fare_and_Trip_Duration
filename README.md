@@ -243,19 +243,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-105 · `DATA` · Feature engineering pipeline
 
-**Depends on:** T-104
+**Depends on:** T-104 — **Artifact:** `src/features.py`, `models/feature_pipeline.pkl`
 
-- [ ] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
+- [x] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
       US holiday flag; cyclical encoding for hour and weekday.
-- [ ] Zone features built from `PULocationID` / `DOLocationID` — **not** from raw
+- [x] Zone features built from `PULocationID` / `DOLocationID` — **not** from raw
       coordinates. Includes borough and service-zone joins from the lookup table.
-- [ ] Haversine distance between zone centroids, plus its ratio to `trip_distance`.
-- [ ] Categorical encoding strategy chosen and justified (265 zones — one-hot is
+- [x] Haversine distance between zone centroids, plus its ratio to `trip_distance`.
+- [x] Categorical encoding strategy chosen and justified (265 zones — one-hot is
       likely wrong; target/ordinal encoding fitted on train only).
-- [ ] The whole pipeline is a single fitted object (`sklearn` `Pipeline` or
+- [x] The whole pipeline is a single fitted object (`sklearn` `Pipeline` or
       `ColumnTransformer`) that can be serialized — no loose transformation steps.
-- [ ] Fitted on train split only; a test asserts no statistic is computed on test data.
-- [ ] The `trip_distance` assumption (¹ above) documented in a module docstring.
+- [x] Fitted on train split only; a test asserts no statistic is computed on test data.
+- [x] The `trip_distance` assumption (¹ above) documented in a module docstring.
 
 ### T-106 · `ML` · Baseline regressors (linear and trees)
 
