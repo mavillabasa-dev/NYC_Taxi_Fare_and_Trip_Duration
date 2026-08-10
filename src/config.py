@@ -10,6 +10,26 @@ RAW_DATA_PATH = os.path.join(DATASET_DIR, "yellow_tripdata_2022-05.parquet")
 TRAIN_CLEANED_PATH = os.path.join(DATASET_DIR, "train_cleaned.parquet")
 TEST_CLEANED_PATH = os.path.join(DATASET_DIR, "test_cleaned.parquet")
 
+# Ingestion Source URLs & Local Auxiliary Paths
+YELLOW_TAXI_URL = (
+    "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2022-05.parquet"
+)
+TAXI_ZONE_LOOKUP_URL = (
+    "https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv"
+)
+TAXI_ZONE_SHAPEFILE_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip"
+
+TAXI_ZONE_LOOKUP_PATH = os.path.join(DATASET_DIR, "taxi_zone_lookup.csv")
+TAXI_ZONE_SHAPEFILE_PATH = os.path.join(DATASET_DIR, "taxi_zones.zip")
+TAXI_ZONE_CENTROIDS_PATH = os.path.join(DATASET_DIR, "taxi_zone_centroids.csv")
+
+# Data Download Guardrails & Validation Thresholds
+MIN_PARQUET_SIZE_BYTES = 40 * 1024 * 1024  # 40 MB
+MIN_PARQUET_ROW_COUNT = 3_000_000
+MIN_LOOKUP_SIZE_BYTES = 10 * 1024  # 10 KB
+MIN_LOOKUP_ROW_COUNT = 260
+MIN_SHAPEFILE_SIZE_BYTES = 500 * 1024  # 500 KB
+
 # Models Directory
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
 MODEL_PATH = os.path.join(MODELS_DIR, "model.pkl")
