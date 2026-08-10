@@ -201,17 +201,17 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-116 · `DATA` · Reproducible dataset ingestion
 
-**Depends on:** T-101
+**Depends on:** T-101 — **Artifact:** `src/data_utils.py`, `dataset/taxi_zone_centroids.csv`
 
-- [ ] Script (`src/data_utils.py`) downloads, into `dataset/`:
+- [x] Script (`src/data_utils.py`) downloads, into `dataset/`:
       the May 2022 Yellow Taxi parquet, the Taxi Zone Lookup CSV, and the Taxi Zone
       Shapefile.
-- [ ] Downloads are idempotent — re-running skips files already present.
-- [ ] File sizes / row counts are logged and asserted so a truncated download fails
+- [x] Downloads are idempotent — re-running skips files already present.
+- [x] File sizes / row counts are logged and asserted so a truncated download fails
       loudly instead of silently.
-- [ ] Zone centroids are derived from the shapefile and cached as a lookup table
+- [x] Zone centroids are derived from the shapefile and cached as a lookup table
       keyed by `LocationID`.
-- [ ] Documented in the README: one command, from empty checkout to populated
+- [x] Documented in the README: one command, from empty checkout to populated
       `dataset/`.
 
 ### T-103 · `EDA` · Exploratory data analysis notebook
