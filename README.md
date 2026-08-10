@@ -312,24 +312,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-110 · `API` · Real-time prediction backend API
 
-**Depends on:** T-109
+**Depends on:** T-109 — **Artifact:** `api/main.py`, `api/app/model/`
 
-> **Implementation status:** the API contract, validation, startup loading, health
-> endpoint and integration tests are implemented against a small fixture artifact.
-> Keep this ticket open until T-109 produces a real bundle with `model`,
-> `feature_order` and `version`, and that artifact passes the same tests.
-
-- [ ] `POST /predict` accepts `PULocationID`, `DOLocationID`, `tpep_pickup_datetime`,
+- [x] `POST /predict` accepts `PULocationID`, `DOLocationID`, `tpep_pickup_datetime`,
       `passenger_count`, `RatecodeID`, `trip_distance` — **zone IDs, not lat/lon** —
       and returns predicted fare and duration.
-- [ ] Pydantic schemas in `app/model/schema.py` validate ranges: `LocationID` in
+- [x] Pydantic schemas in `app/model/schema.py` validate ranges: `LocationID` in
       1–265, `passenger_count` ≥ 1, `RatecodeID` in the documented set. Invalid input
       returns 422 with a useful message, never a 500.
-- [ ] `GET /health` returns 200 and reports whether the model is loaded and its
+- [x] `GET /health` returns 200 and reports whether the model is loaded and its
       version string — T-113 depends on this endpoint existing.
-- [ ] Model loaded **once at startup**, not per request.
-- [ ] Imports written for `api/` as top level (`from app.model.router import ...`).
-- [ ] Interactive docs reachable at `/docs`.
+- [x] Model loaded **once at startup**, not per request.
+- [x] Imports written for `api/` as top level (`from app.model.router import ...`).
+- [x] Interactive docs reachable at `/docs`.
 
 ### T-111 · `FRONTEND` · Interactive visual dashboard and demo
 
