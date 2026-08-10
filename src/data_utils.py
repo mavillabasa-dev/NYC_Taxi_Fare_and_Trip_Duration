@@ -54,23 +54,18 @@ def download_file(
 ) -> bool:
     """
     Downloads a file from a URL to target_path idempotently.
-    Skips download if file already exists and meets minimum size requirement.
-
-    Args:
-        url: Source URL string.
-        target_path: Destination local file path.
-        min_expected_size: Minimum required size in bytes to prevent truncated downloads.
-        force: If True, re-downloads even if target file exists.
-
-    Returns:
-        True if file was downloaded, False if skipped because it already exists.
+    Skips download if file already exists or if target is a zip whose extracted dir exists.
     """
     target = Path(target_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    if not force and target.exists() and target.stat().st_size >= min_expected_size:
+    # Check if target file exists or if extracted shapefile directory already exists
+    extracted_dir = target.parent / "taxi_zones"
+    shapefile_extracted = target.suffix == ".zip" and extracted_dir.exists() and any(extracted_dir.rglob("*.shp"))
+
+    if not force and (shapefile_extracted or (target.exists() and target.stat().st_size >= min_expected_size)):
         logger.info(
-            f"Skipping download for '{target.name}' — already present ({target.stat().st_size / (1024*1024):.2f} MB)"
+            f"Skipping download for '{target.name}' — already present or extracted"
         )
         return False
 
@@ -166,6 +161,7 @@ def derive_zone_centroids(
     """
     Derives spatial centroids (longitude, latitude in WGS84 EPSG:4326) from Taxi Zone Shapefile,
     merges them with Zone Lookup metadata, and caches the result as a lookup table keyed by LocationID.
+    Removes the downloaded .zip archive after extracting contents.
 
     Args:
         shapefile_path: Path to local taxi_zones.zip.
@@ -183,12 +179,18 @@ def derive_zone_centroids(
         logger.info(f"Loaded {len(centroids_df)} zone centroids from cache.")
         return centroids_df
 
-    logger.info(f"Extracting and reading shapefile from {shapefile_path}...")
     shapefile_dir = Path(shapefile_path).parent / "taxi_zones"
     shapefile_dir.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
-        zip_ref.extractall(shapefile_dir)
+    if Path(shapefile_path).exists():
+        logger.info(f"Extracting shapefile from {shapefile_path}...")
+        with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
+            zip_ref.extractall(shapefile_dir)
+        try:
+            os.remove(shapefile_path)
+            logger.info(f"Removed downloaded zip archive '{Path(shapefile_path).name}' after extraction.")
+        except OSError as exc:
+            logger.warning(f"Could not remove zip archive '{shapefile_path}': {exc}")
 
     shp_files = list(shapefile_dir.rglob("*.shp"))
     if not shp_files:

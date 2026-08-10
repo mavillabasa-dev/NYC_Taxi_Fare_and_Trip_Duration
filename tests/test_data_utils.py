@@ -64,9 +64,6 @@ def test_validate_lookup_csv():
 
 def test_derive_zone_centroids():
     """Test spatial centroid derivation from shapefile and lookup table."""
-    assert os.path.exists(
-        TAXI_ZONE_SHAPEFILE_PATH
-    ), "Shapefile ZIP should exist for test"
     assert os.path.exists(TAXI_ZONE_LOOKUP_PATH), "Lookup CSV should exist for test"
 
     centroids_df = derive_zone_centroids(
