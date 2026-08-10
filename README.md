@@ -243,7 +243,7 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-105 · `DATA` · Feature engineering pipeline
 
-**Depends on:** T-104 — **Artifact:** `src/features.py`, `models/feature_pipeline.pkl`
+**Depends on:** T-104 — **Artifact:** `src/features.py`, `notebooks/02b_feature_engineering.ipynb`, `models/feature_pipeline.pkl`
 
 - [x] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
       US holiday flag; cyclical encoding for hour and weekday.
