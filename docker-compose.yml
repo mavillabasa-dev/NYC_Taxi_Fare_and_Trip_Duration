@@ -11,3 +11,17 @@ services:
       - .env
     volumes:
       - ./models:/app/models
+
+  dashboard:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+      - DATASET_DIR=/app/dataset
+    volumes:
+      - ./dataset:/app/dataset:ro
+    depends_on:
+      - api
