@@ -22,14 +22,32 @@ period.
 
 ## Run
 
-After T-105 has serialized its unfitted sklearn transformer and T-104 has produced
-the cleaned temporal splits:
+### Environment
+
+The repository pins Python 3.11 in `.python-version`. With `uv` installed:
 
 ```bash
+uv python install 3.11
+uv venv --python 3.11
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+source .venv/bin/activate
+```
+
+### Data, features, and training
+
+After T-116 and T-104 have produced the cleaned temporal splits, generate the T-105
+artifact through its canonical module import and run the experiment:
+
+```bash
+python -m src.data_utils
+python -m src.preprocessing
+
+python -c "from src.features import build_and_save_feature_pipeline; from src.config import TRAIN_CLEANED_PATH; build_and_save_feature_pipeline(TRAIN_CLEANED_PATH)"
+
 python -m src.gradient_boosting \
   --train dataset/train_cleaned.parquet \
   --test dataset/test_cleaned.parquet \
-  --transformer models/feature_transformer.joblib \
+  --transformer models/feature_pipeline.pkl \
   --output-dir models/t107
 ```
 
@@ -38,6 +56,17 @@ four candidate pipelines and `t107_results.json`, including test MAE, RMSE, MAPE
 R², training time, warm single-row inference time, best parameters, normalized
 feature importance, and any feature whose importance crosses the leakage-review
 threshold.
+
+The M2 Pro runs these libraries on CPU (their GPU paths require CUDA and do not use
+Apple Metal). To balance throughput and memory during the full search, use two search
+workers on a 16 GB Mac or four on a Mac with at least 32 GB:
+
+```bash
+# 16 GB M2 Pro
+python -m src.gradient_boosting \
+  --transformer models/feature_pipeline.pkl \
+  --output-dir models/t107 --n-jobs 2
+```
 
 ## Leakage audit
 
@@ -48,6 +77,12 @@ production requests must supply a routing estimate, not completed metered distan
 
 ## Current limitation
 
-No real scores are committed because `dataset/` and `models/` are intentionally
-gitignored and T-105 is developed independently. Run the command above after those
-inputs are available, and use the generated JSON as T-109's comparison-table input.
+The raw data, cleaned splits, fitted T-105 pipeline, and T-107 candidate models are
+local artifacts under the gitignored `dataset/` and `models/` directories. Generate
+them with the repository scripts before running this experiment. The metrics from a
+completed run are recorded below and the generated `models/t107/t107_results.json`
+is T-109's machine-readable comparison-table input.
+
+## Results
+
+Pending the reproducible full-data run.

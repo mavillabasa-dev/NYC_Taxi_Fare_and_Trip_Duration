@@ -13,6 +13,7 @@ from src.gradient_boosting import (
     save_results,
     validate_feature_contract,
 )
+from src.features import NYCFeaturePipeline
 
 
 @pytest.fixture
@@ -94,3 +95,47 @@ def test_experiment_trains_both_targets_and_saves_report(
     assert report["ticket"] == "T-107"
     assert len(report["runs"]) == 2
     assert (tmp_path / f"t107_{model_family}_fare_amount.joblib").exists()
+
+
+def test_experiment_integrates_with_t105_feature_pipeline(tmp_path):
+    rows = 48
+    location_ids = np.resize(np.array([1, 2, 3]), rows)
+    distance = np.linspace(0.5, 12.0, rows)
+    frame = pd.DataFrame(
+        {
+            "tpep_pickup_datetime": pd.date_range(
+                "2022-05-01", periods=rows, freq="h"
+            ),
+            "PULocationID": location_ids,
+            "DOLocationID": np.roll(location_ids, 1),
+            "passenger_count": np.resize(np.array([1, 2]), rows),
+            "RatecodeID": np.ones(rows),
+            "trip_distance": distance,
+            "VendorID": np.resize(np.array([1, 2]), rows),
+            "fare_amount": 3.0 + 2.7 * distance,
+            "duration_minutes": 4.0 + 3.5 * distance,
+        }
+    )
+    centroids_path = tmp_path / "taxi_zone_centroids.csv"
+    pd.DataFrame(
+        {
+            "LocationID": [1, 2, 3],
+            "longitude": [-74.0, -73.95, -73.9],
+            "latitude": [40.7, 40.75, 40.8],
+            "Borough": ["Manhattan", "Queens", "Brooklyn"],
+        }
+    ).to_csv(centroids_path, index=False)
+
+    runs = run_experiments(
+        frame.iloc[:36].copy(),
+        frame.iloc[36:].copy(),
+        transformer=NYCFeaturePipeline(centroids_path=str(centroids_path)),
+        targets=("fare_amount",),
+        model_families=("lightgbm",),
+        config=SearchConfig(n_iter=1, cv_splits=2, n_jobs=1, verbose=0),
+    )
+
+    assert len(runs) == 1
+    fitted_features = runs[0].estimator.named_steps["features"]
+    assert fitted_features.feature_names_
+    assert "tpep_pickup_datetime" not in fitted_features.feature_names_

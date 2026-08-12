@@ -362,7 +362,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--transformer",
         required=True,
-        help="T-105 sklearn transformer serialized with joblib",
+        help="T-105 sklearn feature pipeline (models/feature_pipeline.pkl)",
     )
     parser.add_argument("--output-dir", default="models/t107")
     parser.add_argument("--n-iter", type=int, default=12)
