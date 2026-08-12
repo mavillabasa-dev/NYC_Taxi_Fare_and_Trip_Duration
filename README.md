@@ -201,17 +201,17 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-116 · `DATA` · Reproducible dataset ingestion
 
-**Depends on:** T-101
+**Depends on:** T-101 — **Artifact:** `src/data_utils.py`, `dataset/taxi_zone_centroids.csv`
 
-- [ ] Script (`src/data_utils.py`) downloads, into `dataset/`:
+- [x] Script (`src/data_utils.py`) downloads, into `dataset/`:
       the May 2022 Yellow Taxi parquet, the Taxi Zone Lookup CSV, and the Taxi Zone
       Shapefile.
-- [ ] Downloads are idempotent — re-running skips files already present.
-- [ ] File sizes / row counts are logged and asserted so a truncated download fails
+- [x] Downloads are idempotent — re-running skips files already present.
+- [x] File sizes / row counts are logged and asserted so a truncated download fails
       loudly instead of silently.
-- [ ] Zone centroids are derived from the shapefile and cached as a lookup table
+- [x] Zone centroids are derived from the shapefile and cached as a lookup table
       keyed by `LocationID`.
-- [ ] Documented in the README: one command, from empty checkout to populated
+- [x] Documented in the README: one command, from empty checkout to populated
       `dataset/`.
 
 ### T-103 · `EDA` · Exploratory data analysis notebook
@@ -243,19 +243,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-105 · `DATA` · Feature engineering pipeline
 
-**Depends on:** T-104
+**Depends on:** T-104 — **Artifact:** `src/features.py`, `notebooks/02b_feature_engineering.ipynb`, `models/feature_pipeline.pkl`
 
-- [ ] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
+- [x] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
       US holiday flag; cyclical encoding for hour and weekday.
-- [ ] Zone features built from `PULocationID` / `DOLocationID` — **not** from raw
+- [x] Zone features built from `PULocationID` / `DOLocationID` — **not** from raw
       coordinates. Includes borough and service-zone joins from the lookup table.
-- [ ] Haversine distance between zone centroids, plus its ratio to `trip_distance`.
-- [ ] Categorical encoding strategy chosen and justified (265 zones — one-hot is
+- [x] Haversine distance between zone centroids, plus its ratio to `trip_distance`.
+- [x] Categorical encoding strategy chosen and justified (265 zones — one-hot is
       likely wrong; target/ordinal encoding fitted on train only).
-- [ ] The whole pipeline is a single fitted object (`sklearn` `Pipeline` or
+- [x] The whole pipeline is a single fitted object (`sklearn` `Pipeline` or
       `ColumnTransformer`) that can be serialized — no loose transformation steps.
-- [ ] Fitted on train split only; a test asserts no statistic is computed on test data.
-- [ ] The `trip_distance` assumption (¹ above) documented in a module docstring.
+- [x] Fitted on train split only; a test asserts no statistic is computed on test data.
+- [x] The `trip_distance` assumption (¹ above) documented in a module docstring.
 
 ### T-106 · `ML` · Baseline regressors (linear and trees)
 
@@ -312,24 +312,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-110 · `API` · Real-time prediction backend API
 
-**Depends on:** T-109
+**Depends on:** T-109 — **Artifact:** `api/main.py`, `api/app/model/`
 
-> **Implementation status:** the API contract, validation, startup loading, health
-> endpoint and integration tests are implemented against a small fixture artifact.
-> Keep this ticket open until T-109 produces a real bundle with `model`,
-> `feature_order` and `version`, and that artifact passes the same tests.
-
-- [ ] `POST /predict` accepts `PULocationID`, `DOLocationID`, `tpep_pickup_datetime`,
+- [x] `POST /predict` accepts `PULocationID`, `DOLocationID`, `tpep_pickup_datetime`,
       `passenger_count`, `RatecodeID`, `trip_distance` — **zone IDs, not lat/lon** —
       and returns predicted fare and duration.
-- [ ] Pydantic schemas in `app/model/schema.py` validate ranges: `LocationID` in
+- [x] Pydantic schemas in `app/model/schema.py` validate ranges: `LocationID` in
       1–265, `passenger_count` ≥ 1, `RatecodeID` in the documented set. Invalid input
       returns 422 with a useful message, never a 500.
-- [ ] `GET /health` returns 200 and reports whether the model is loaded and its
+- [x] `GET /health` returns 200 and reports whether the model is loaded and its
       version string — T-113 depends on this endpoint existing.
-- [ ] Model loaded **once at startup**, not per request.
-- [ ] Imports written for `api/` as top level (`from app.model.router import ...`).
-- [ ] Interactive docs reachable at `/docs`.
+- [x] Model loaded **once at startup**, not per request.
+- [x] Imports written for `api/` as top level (`from app.model.router import ...`).
+- [x] Interactive docs reachable at `/docs`.
 
 ### T-111 · `FRONTEND` · Interactive visual dashboard and demo
 
