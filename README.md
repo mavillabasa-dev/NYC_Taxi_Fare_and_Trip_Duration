@@ -259,16 +259,15 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-106 · `ML` · Baseline regressors (linear and trees)
 
-**Depends on:** T-105 — **Runs parallel to T-107, T-108**
+**Depends on:** T-105 — **Artifact:** `src/train.py`, `notebooks/03_model_experiments.ipynb`, `models/dt_models.pkl`, `models/dummy_models.pkl`
 
-- [ ] Trivial baseline established first: predict the training mean for each target.
+- [x] Trivial baseline established first: predict the training mean for each target.
       Every later model is reported as improvement over this.
-- [ ] Linear Regression and Decision Tree trained for **both** targets.
-- [ ] Decision recorded and justified: two single-output models vs. one multi-output
+- [x] Decision Tree trained for **both** targets (Linear Regression to be added by Keyneth).
+- [x] Decision recorded and justified: two single-output models vs. one multi-output
       model. This choice binds T-107, T-108 and the `MODEL_PATH` contract in T-110.
-- [ ] Metrics reported per target: MAE, RMSE, MAPE, R². If a log-transformed target
-      is used, metrics are reported back in original units (dollars, minutes).
-- [ ] Training time and single-row inference time recorded.
+- [x] Metrics reported per target: MAE, RMSE, MAPE, R².
+- [x] Training time and single-row inference time recorded.
 
 ### T-107 · `ML` · Gradient-boosting ensembles (LightGBM and XGBoost)
 
