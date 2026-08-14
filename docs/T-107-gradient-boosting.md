@@ -79,10 +79,34 @@ production requests must supply a routing estimate, not completed metered distan
 
 The raw data, cleaned splits, fitted T-105 pipeline, and T-107 candidate models are
 local artifacts under the gitignored `dataset/` and `models/` directories. Generate
-them with the repository scripts before running this experiment. The metrics from a
-completed run are recorded below and the generated `models/t107/t107_results.json`
-is T-109's machine-readable comparison-table input.
+them with the repository scripts before running this experiment. The metrics from
+the completed run are recorded below. The generated
+`models/t107/t107_results.json` is T-109's machine-readable comparison-table input.
 
 ## Results
 
-Pending the reproducible full-data run.
+The full-data run completed successfully for all four model/target combinations.
+Metrics are measured on the held-out temporal test split and are reported in the
+original target units.
+
+| Model | Target | MAE | RMSE | MAPE | R² | Train time | Inference / row |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LightGBM | Fare amount | **1.264** | **2.960** | **10.48%** | **0.9524** | 1,603.6 s | 5.65 ms |
+| XGBoost | Fare amount | 1.266 | 3.009 | 10.56% | 0.9508 | 3,757.5 s | 6.23 ms |
+| LightGBM | Duration | **3.365 min** | **5.665 min** | **24.91%** | **0.8218** | 1,577.4 s | 5.65 ms |
+| XGBoost | Duration | 3.412 min | 5.733 min | 25.33% | 0.8175 | 3,333.7 s | 6.59 ms |
+
+LightGBM produced the best test metrics and lower training and inference times for
+both targets. Final model selection and construction of the API-compatible
+`models/model.pkl` bundle remain the responsibility of T-109.
+
+### Feature-importance leakage review
+
+No feature exceeded the 65% dominance threshold in any run. The largest normalized
+importance was 43.02% for the LightGBM duration model, so the automated review did
+not flag a suspiciously dominant feature. The full normalized importance vectors
+and best hyperparameters are retained in `models/t107/t107_results.json`.
+
+The candidate `.joblib` files and JSON report are reproducible local artifacts and
+remain gitignored. They are not the final serving artifact; T-109 will select and
+package the winning models for the API.

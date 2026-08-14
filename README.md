@@ -274,12 +274,12 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** T-105 — **Runs parallel to T-106, T-108**
 
-- [ ] LightGBM and XGBoost trained for both targets on the same splits as T-106.
-- [ ] Hyperparameter search documented (method, search space, budget) and reproducible.
-- [ ] Feature importance reported; any feature that looks suspiciously dominant is
+- [x] LightGBM and XGBoost trained for both targets on the same splits as T-106.
+- [x] Hyperparameter search documented (method, search space, budget) and reproducible.
+- [x] Feature importance reported; any feature that looks suspiciously dominant is
       re-checked against the leakage contract.
-- [ ] Same metric set and timing measurements as T-106.
-- [ ] Exact library versions recorded — they become container dependencies in T-114.
+- [x] Same metric set and timing measurements as T-106.
+- [x] Exact library versions recorded — they become container dependencies in T-114.
 
 ### T-108 · `ML` · Multi-layer perceptron (MLP) evaluation
 
