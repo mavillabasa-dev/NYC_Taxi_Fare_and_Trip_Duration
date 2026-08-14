@@ -327,15 +327,15 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-111 · `FRONTEND` · Interactive visual dashboard and demo
 
-**Depends on:** T-109
+**Depends on:** T-109 — **Artifact:** `ui/`
 
-- [ ] User picks pickup and dropoff zones plus a date/time and sees both predictions.
-- [ ] NYC choropleth map rendered from the Taxi Zone Shapefile, showing predictions
+- [x] User picks pickup and dropoff zones plus a date/time and sees both predictions.
+- [x] NYC choropleth map rendered from the Taxi Zone Shapefile, showing predictions
       by region.
-- [ ] Framework chosen (Streamlit / Gradio / static front-end) and recorded — T-114
+- [x] Framework chosen (Streamlit / Gradio / static front-end) and recorded — T-114
       has to add a service for it to `docker-compose.yml`.
-- [ ] Reads predictions from the T-110 API; it does not load the model itself.
-- [ ] Handles API downtime with a visible error state rather than a stack trace.
+- [x] Reads predictions from the T-110 API; it does not load the model itself.
+- [x] Handles API downtime with a visible error state rather than a stack trace.
 
 ### T-112 · `TEST` · Unit and integration test suite
 
