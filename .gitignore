@@ -10,6 +10,7 @@ dataset/*.zip
 dataset/taxi_zones/
 models/*.pkl
 models/*.h5
+models/t107/
 .DS_Store
 mynotes.md
 dataset/taxi_zones/
