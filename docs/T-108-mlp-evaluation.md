@@ -67,4 +67,4 @@ Evaluated on `test_cleaned.parquet` (held-out temporal period post-2022-05-23). 
 
 1. **Performance vs GBDTs**: Gradient Boosted Decision Trees (LightGBM and XGBoost) outperform the MLP on both fare ($1.26 vs $2.20 MAE) and duration (3.36 min vs 3.68 min MAE). Tabular features with dense distance-to-fare non-linearities are naturally captured by tree-based partitioning.
 2. **Inference Latency**: The MLP has slightly higher single-row latency (~0.83 ms vs ~0.41 ms for LightGBM) due to matrix multiplications across 2 hidden layers.
-3. **Reproducibility**: Candidate models are exported to `models/t108/` (`t108_mlp_fare_amount.joblib`, `t108_mlp_duration_minutes.joblib`, and `t108_mlp_results.json`).
+3. **Reproducibility**: Candidate models are exported to `models/mlp/` (`mlp_fare_amount.joblib`, `mlp_duration_minutes.joblib`, and `mlp_results.json`).

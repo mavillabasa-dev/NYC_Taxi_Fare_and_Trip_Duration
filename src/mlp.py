@@ -157,7 +157,7 @@ def train_and_evaluate_mlp(
     test_path: str = TEST_CLEANED_PATH,
     config: MLPConfig = MLPConfig(),
     save_models: bool = True,
-    output_dir: str = os.path.join(MODELS_DIR, "t108"),
+    output_dir: str = os.path.join(MODELS_DIR, "mlp"),
 ) -> Dict[str, Any]:
     """Trains and evaluates MLP models for fare_amount and duration_minutes."""
     logger.info("--- Starting Multi-Layer Perceptron (MLP) Evaluation (T-108) ---")
@@ -248,11 +248,11 @@ def train_and_evaluate_mlp(
         os.makedirs(MODELS_DIR, exist_ok=True)
 
         for target, pipe in fitted_pipelines.items():
-            model_file = os.path.join(output_dir, f"t108_mlp_{target}.joblib")
+            model_file = os.path.join(output_dir, f"mlp_{target}.joblib")
             joblib.dump(pipe, model_file)
             logger.info(f"Saved {target} MLP pipeline to {model_file}")
 
-        results_json_path = os.path.join(output_dir, "t108_mlp_results.json")
+        results_json_path = os.path.join(output_dir, "mlp_results.json")
         with open(results_json_path, "w") as f:
             json.dump(reports, f, indent=2)
         logger.info(f"Saved MLP metrics report to {results_json_path}")
@@ -274,7 +274,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run T-108 MLP regression experiments")
     parser.add_argument("--train", default=TRAIN_CLEANED_PATH)
     parser.add_argument("--test", default=TEST_CLEANED_PATH)
-    parser.add_argument("--output-dir", default=os.path.join(MODELS_DIR, "t108"))
+    parser.add_argument("--output-dir", default=os.path.join(MODELS_DIR, "mlp"))
     parser.add_argument("--max-iter", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--lr", type=float, default=0.002)
