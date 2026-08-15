@@ -16,6 +16,11 @@ This document compiles technical questions, theoretical concepts, and architectu
 9. [Categorical Encodings Comparison: One-Hot vs. Ordinal vs. Target Encoding](#9-categorical-encodings-comparison-one-hot-vs-ordinal-vs-target-encoding)
 10. [Mathematical Step-by-Step Calculation of Target Encoding](#10-mathematical-step-by-step-calculation-of-target-encoding)
 11. [General Definition and Goal of Feature Engineering](#11-general-definition-and-goal-of-feature-engineering)
+12. [Multi-Output vs. Two Single-Output Regressors for Fare and Duration](#12-multi-output-vs-two-single-output-regressors-for-fare-and-duration)
+13. [Role of SimpleImputer and StandardScaler in Neural Network Pipelines](#13-role-of-simpleimputer-and-standardscaler-in-neural-network-pipelines)
+14. [Regression Evaluation Metrics: MAE, RMSE, MAPE, and R²](#14-regression-evaluation-metrics-mae-rmse-mape-and-r2)
+15. [Hyperparameter Tuning for MLP Models on Tabular Data](#15-hyperparameter-tuning-for-mlp-models-on-tabular-data)
+16. [Differences Between LightGBM and XGBoost Models](#16-differences-between-lightgbm-and-xgboost-models)
 
 ---
 
@@ -397,3 +402,226 @@ As AI pioneer **Andrew Ng** famously stated:
 > *"Applied machine learning is basically feature engineering. Coming up with features is complicated, messy, human-intensive, requiring domain knowledge..."*
 
 By creating these 29 engineered features in `src/features.py`, we make it significantly easier for all downstream models (Linear Regression, Decision Trees, LightGBM, XGBoost, and MLPs) to achieve higher prediction accuracy ($\text{R}^2$), lower error ($\text{MAE}/\text{RMSE}$), and faster training convergence.
+
+---
+
+## 12. Multi-Output vs. Two Single-Output Regressors for Fare and Duration
+
+### Question:
+> Another question: do you think it's necessary to train another MLP that's able to predict both the fare and duration?
+
+### Answer:
+**No, it is not necessary**, and continuing with two independent single-output models is the recommended approach.
+
+#### 1. Project Consistency & Architecture Contract (T-106 Binding)
+In **T-106**, our team established and recorded an explicit architectural decision:
+> *Train two single-output models (one for `fare_amount`, one for `duration_minutes`) rather than a single multi-output model.*
+
+All other candidate model families in the project (**Decision Trees**, **LightGBM**, and **XGBoost**) use two independent single-output regressors. Keeping the MLP aligned ensures fair, 1-to-1 comparison across the entire benchmark leaderboard for model selection in **T-109**.
+
+#### 2. Loss Conflict & Gradient Interference
+In a multi-output neural network, the loss function must optimize both targets simultaneously:
+
+$$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{fare}} + \lambda \cdot \mathcal{L}_{\text{duration}}$$
+
+* **Different Variance Scales**: Fares and trip durations operate on different physical and financial distributions.
+* **Gradient Tug-of-War**: Shared hidden layers can suffer from *negative transfer*, where gradient updates from the noisy duration loss degrade the weights needed for precise fare estimation.
+
+#### 3. Independent Hyperparameter Tuning & Early Stopping
+* **Fare Amount**: Fares are strongly governed by metered mileage and flat-rate airport codes ($R^2 \approx 0.95$).
+* **Trip Duration**: Durations are heavily non-linear, influenced by traffic congestion, hour of the day, and grid bottlenecks ($R^2 \approx 0.80$).
+
+Single-output networks allow each target to reach early stopping independently and use dedicated network capacities without compromising the other.
+
+#### Summary Recommendation
+Two separate single-output MLPs (as implemented in `src/mlp.py`) provide:
+1. **Higher accuracy per target** (no multi-task gradient conflict).
+2. **Clean modularity** matching LightGBM, XGBoost, and Decision Trees.
+3. **Decoupled latency & inference diagnostics**.
+
+---
+
+## 13. Role of SimpleImputer and StandardScaler in Neural Network Pipelines
+
+### Question:
+> Another one: What do the `SimpleImputer` and `StandardScaler` classes do?
+
+### Answer:
+Here is what **`SimpleImputer`** and **`StandardScaler`** do and why they are essential for training the Multi-Layer Perceptron (MLP) in `src/mlp.py`:
+
+#### 1. `SimpleImputer(strategy="median")` — Handling Missing Values
+* **What It Does**: Replaces any missing values (`NaN` or `None`) in each numeric feature with the **median value** of that feature computed from the training dataset.
+* **Why It Is Essential for Neural Networks**:
+  * **The Math Problem**: Neural networks compute layer activations via matrix multiplications:
+    $$z = W \cdot x + b$$
+    If even a single feature $x_i$ is `NaN`, the entire matrix product becomes `NaN`, corrupting gradient descent and causing training to crash.
+  * **In Our Dataset**: Special zones (like `LocationID=264` and `265` for Unknown/Outside NYC) have no shapefile geometry, leaving `pu_lat`, `pu_lon`, `do_lat`, and `do_lon` missing. `SimpleImputer` safely fills those coordinates with median NYC values.
+
+#### 2. `StandardScaler()` — Normalizing Feature Scales
+* **What It Does**: Transforms every numeric feature so that its **Mean is 0** ($\mu = 0$) and its **Standard Deviation is 1** ($\sigma = 1$) using the standard z-score formula:
+  $$z = \frac{x - \mu}{\sigma}$$
+* **Why It Is Essential for Neural Networks**:
+  * **Scale Disparity**: In our engineered features, some variables have large numeric ranges (e.g. `trip_distance` spanning $0.5$ to $30+$ miles), while others are small (e.g. `sin_hour` spanning $-1.0$ to $+1.0$).
+  * **Gradient Stability**: Without scaling, features with larger numbers generate disproportionately huge gradients, causing optimization oscillations or exploding gradients. Standardizing all 29 features onto the same scale ensures fast, stable convergence for the Adam optimizer.
+
+#### 3. Why Put Both Inside the `sklearn.pipeline.Pipeline`?
+In `src/mlp.py`:
+```python
+Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+    ("mlp", MLPRegressor(...))
+])
+```
+1. **Zero Data Leakage**: The medians ($\text{median}$) and scaling parameters ($\mu, \sigma$) are computed **strictly on `X_train`** during `.fit()`.
+2. **Seamless Production Serving**: When a new request arrives at the API, calling `.predict()` automatically imputes and scales the new row using the saved training parameters without any manual preprocessing steps.
+
+---
+
+## 14. Regression Evaluation Metrics: MAE, RMSE, MAPE, and R²
+
+### Question:
+> Another one: What do the metrics MAE, RMSE, MAPE (%), and R2 measure?
+
+### Answer:
+Here is a breakdown of what **MAE**, **RMSE**, **MAPE (%)**, and **$R^2$** measure, how they are calculated, and how to interpret them in the context of our taxi fare and duration models:
+
+#### Summary Comparison Table
+| Metric | Full Name | Formula | Units | What It Tells You in Simple Terms |
+|---|---|---|---|---|
+| **MAE** | Mean Absolute Error | $\frac{1}{N}\sum |y_i - \hat{y}_i|$ | Dollars ($\$$) / Mins | **Average magnitude of error** across all trips. |
+| **RMSE** | Root Mean Squared Error | $\sqrt{\frac{1}{N}\sum (y_i - \hat{y}_i)^2}$ | Dollars ($\$$) / Mins | Error metric that **heavily penalizes large mistakes**. |
+| **MAPE** | Mean Absolute Percentage Error | $\frac{100\%}{N}\sum |\frac{y_i - \hat{y}_i}{y_i}|$ | Percentage ($\%$) | **Relative error** proportional to the trip size. |
+| **$R^2$** | Coefficient of Determination | $1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$ | Unitless ($-\infty$ to $1.0$) | **% of target variance explained** by the model. |
+
+#### 1. MAE (Mean Absolute Error)
+* **What it measures**: The average absolute dollar (or minute) difference between predicted and actual values.
+* **Intuition**: *"On average, how many dollars is our prediction off by?"*
+* **Example in Our Project**: LightGBM Fare MAE = **$\$1.26$**, meaning our fare prediction is off by $\$1.26$ on average.
+* **Key Strength**: Intuitive to explain to stakeholders and robust to extreme outliers.
+
+#### 2. RMSE (Root Mean Squared Error)
+* **What it measures**: The square root of the average squared errors.
+* **Intuition**: Squaring errors means that **a $\$10$ error hurts 100 times more than a $\$1$ error**.
+* **Example in Our Project**: LightGBM Fare RMSE = **$\$2.96$**.
+* **Key Insight**: If $\text{RMSE} \gg \text{MAE}$, it signals that the model makes occasional very large errors (e.g. on extreme airport trips or unusual traffic gridlocks).
+
+#### 3. MAPE (Mean Absolute Percentage Error)
+* **What it measures**: The error expressed as a percentage of the actual trip value.
+* **Intuition**: *"What percentage of the true fare is our error?"*
+  * A $\$2.00$ error on a $\$10.00$ short ride is a **$20\%$ error**.
+  * The exact same $\$2.00$ error on a $\$100.00$ airport ride is only a **$2\%$ error**.
+* **Example in Our Project**: LightGBM Fare MAPE = **$10.48\%$**, meaning on average our predictions are within $\approx 10\%$ of the true fare.
+
+#### 4. $R^2$ (Coefficient of Determination)
+* **What it measures**: The proportion of target variance explained by the model compared to a naive model that always predicts the dataset average ($\bar{y}$).
+* **Intuition**: 
+  * **$R^2 = 1.0$**: Perfect prediction ($0$ error).
+  * **$R^2 = 0.0$**: Performs no better than predicting the training mean (Trivial Baseline).
+  * **$R^2 < 0.0$**: Worse than predicting the mean.
+* **Example in Our Project**:
+  * LightGBM Fare $R^2 = \mathbf{0.9524}$ ($95.2\%$ of all variation in NYC taxi fares is successfully explained by our engineered features).
+  * LightGBM Duration $R^2 = \mathbf{0.8218}$ ($82.2\%$ of variation in duration is explained).
+
+---
+
+## 15. Hyperparameter Tuning for MLP Models on Tabular Data
+
+### Question:
+> Another one: Do we need to tune the MLP model?
+
+### Answer:
+**No, extensive additional tuning is not needed.**
+
+#### 1. Requirements of Ticket T-108 are Already Satisfied
+The goal of **T-108** was to provide an **evaluative benchmark** representing deep learning / neural network architectures against decision trees and gradient boosting.
+
+We have already configured and tuned the critical hyperparameters:
+* **Architecture**: 2 hidden layers `(64, 32)` with ReLU activations.
+* **Internal Scaling**: `SimpleImputer` + `StandardScaler` inside the pipeline.
+* **Optimization & Regularization**: Adam optimizer ($\eta = 0.002$), $L_2$ penalty ($\alpha = 0.0001$), and mini-batch size $4{,}096$.
+* **Early Stopping**: Dynamically halts training based on a 10% validation slice from the training split.
+
+#### 2. The "Tabular Data" Reality in Machine Learning
+In empirical machine learning research (e.g. *Grinsztajn et al., 2022 — Why tree-based models still outperform deep learning on tabular data*), neural networks consistently struggle to match Gradient Boosted Decision Trees on tabular data.
+
+Comparing our current test set results:
+
+| Model Family | Fare MAE | Duration MAE | Training Time | Inference Latency |
+|---|---|---|---|---|
+| **LightGBM (T-107)** | **$1.26** | **3.36 min** | **~12s** | **0.41 ms** |
+| **XGBoost (T-107)** | **$1.27** | **3.41 min** | **~24s** | **0.45 ms** |
+| **MLP (T-108)** | **$2.21** | **6.04 min** | **~115s** | **0.77 ms** |
+
+* NYC Taxi data features sharp geometric boundaries (e.g. Manhattan street blocks, flat-rate airport pricing for JFK).
+* Decision Trees and GBDTs partition these exact step-function thresholds with high precision in seconds, whereas neural networks attempt to approximate them using smooth continuous hyperplanes, leading to higher error and longer training times.
+
+#### 3. Impact on Model Selection (T-109)
+In **T-109** (Model Selection), **LightGBM** is already the definitive winner:
+1. **Lowest Error**: Lowest MAE ($1.26$) and highest $R^2$ ($0.952$).
+2. **Fastest Inference**: $\approx 0.41$ ms single-row latency.
+3. **Lowest Training Overhead**: Trains in 12 seconds vs. 115+ seconds for MLP.
+
+Further exhaustive grid-searching on the MLP would yield negligible gains while consuming significant compute time without changing the model selection outcome.
+
+---
+
+## 16. Differences Between LightGBM and XGBoost Models
+
+### Question:
+> Another one: Explain to me the differences between LightGBM and XGBost models.
+
+### Answer:
+Both **LightGBM** (Microsoft, 2016) and **XGBoost** (Tianqi Chen / DMLC, 2014) are high-performance **Gradient Boosted Decision Tree (GBDT)** frameworks. They sequentially train decision trees to predict residual errors from previous trees.
+
+However, they differ fundamentally in their **tree growth strategy**, **data sampling algorithms**, **categorical feature handling**, and **memory/speed efficiency**.
+
+#### 1. Summary Comparison Table
+
+| Feature / Dimension | **LightGBM** (Light Gradient Boosting) | **XGBoost** (eXtreme Gradient Boosting) |
+|---|---|---|
+| **Tree Growth Strategy** | **Leaf-wise (Best-First)**: Splits the single leaf yielding the highest loss reduction. | **Level-wise (Depth-First)**: Splits all nodes across a depth level uniformly. |
+| **Speed & Sampling Mechanism** | **GOSS** (Gradient-based One-Side Sampling) + **EFB** (Exclusive Feature Bundling). | **Weighted Quantile Sketch** + Histogram binning (`tree_method="hist"`). |
+| **Categorical Support** | **Native**: Partitions categories directly by sorting target statistics ($O(k \log k)$). | Historically required manual encoding; native support added in recent versions. |
+| **Training Speed & Memory** | **$2\times - 5\times$ faster**; lower RAM footprint. | Highly optimized, but slightly slower on large tabular datasets. |
+| **Tree Symmetry** | Asymmetrical, deep, high-efficiency branches. | Symmetrical, balanced trees. |
+| **Our Benchmark (Fare MAE / Time)** | **$\$1.2640$** / **$12.45$s** | **$\$1.2660$** / **$24.18$s** |
+
+#### 2. Core Differences Deep-Dive
+
+##### A. Tree Growth: Leaf-Wise vs. Level-Wise
+```text
+XGBoost (Level-wise):               LightGBM (Leaf-wise):
+        [ Root ]                            [ Root ]
+       /        \                          /        \
+   [Node]      [Node]                  [Node]      [Deep Split]
+   /    \      /    \                             /          \
+ [Leaf][Leaf][Leaf][Leaf]                     [Node]        [Deep Split]
+                                                           /          \
+                                                       [Leaf]        [Leaf]
+```
+* **XGBoost (Level-wise)**: Grows trees level-by-level horizontally. This creates balanced trees and prevents overfitting on small datasets, but spends compute splitting nodes that provide minimal loss reduction.
+* **LightGBM (Leaf-wise)**: Chooses only the leaf with the maximum delta loss reduction across the entire tree. For the same number of splits, leaf-wise achieves **lower training loss faster**.
+
+##### B. Algorithmic Innovations in LightGBM (GOSS & EFB)
+LightGBM introduced two major techniques that make it significantly faster on millions of rows:
+1. **GOSS (Gradient-based One-Side Sampling)**:
+   * Data points with *large gradients* are under-fitted (need more learning), while points with *small gradients* are well-trained.
+   * GOSS retains 100% of large-gradient rows and randomly samples a subset (e.g. 10–20%) of small-gradient rows, drastically reducing data size while preserving gradient estimation accuracy.
+2. **EFB (Exclusive Feature Bundling)**:
+   * High-dimensional sparse feature spaces rarely take non-zero values simultaneously. EFB bundles mutually exclusive features into single dense bins, reducing the effective feature dimension.
+
+##### C. Handling of High-Cardinality Categorical Features
+* **LightGBM**: Natively sorts categorical levels based on the cumulative target sum and finds the optimal subset split in $O(k \log k)$ without creating sparse one-hot encoded columns.
+* **XGBoost**: Historically required pre-encoding (Target Encoding or One-Hot Encoding) before building trees.
+
+#### 3. Which One Should You Choose?
+
+* **Use LightGBM** when:
+  * You are working with large tabular datasets ($>100\text{k}$ to millions of rows).
+  * You need fast training cycles, low RAM usage, and rapid hyperparameter experimentation.
+* **Use XGBoost** when:
+  * You have smaller, dense datasets where level-wise regularization prevents overfitting.
+  * You require advanced GPU acceleration features or specialized custom objective functions.
+
+In our NYC Taxi project (~2.4M rows), **LightGBM** achieved equivalent accuracy to XGBoost ($R^2 \approx 0.952$) while training in **half the time (12s vs. 24s)**.

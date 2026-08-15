@@ -282,13 +282,13 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-108 · `ML` · Multi-layer perceptron (MLP) evaluation
 
-**Depends on:** T-105 — **Runs parallel to T-106, T-107**
+**Depends on:** T-105 — **Artifact:** `src/mlp.py`, `docs/T-108-mlp-evaluation.md`, `models/mlp/`
 
-- [ ] MLP trained for both targets; architecture, optimiser and schedule documented.
-- [ ] Numeric features scaled inside the serialized pipeline, not ad hoc in the
+- [x] MLP trained for both targets; architecture, optimiser and schedule documented.
+- [x] Numeric features scaled inside the serialized pipeline, not ad hoc in the
       notebook.
-- [ ] Early stopping on a validation slice carved from the *train* split only.
-- [ ] Training curves plotted; same metric set and timing measurements as T-106.
+- [x] Early stopping on a validation slice carved from the *train* split only.
+- [x] Training curves plotted; same metric set and timing measurements as T-106.
 
 ### T-109 · `EVAL` · Model selection, benchmarking and evaluation
 
