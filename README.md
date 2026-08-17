@@ -292,22 +292,22 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-109 · `EVAL` · Model selection, benchmarking and evaluation
 
-**Depends on:** T-106, T-107, T-108 — **Artifact:** `models/model.pkl`, `notebooks/03_model_experiments.ipynb`
+**Depends on:** T-106, T-107, T-108 — **Artifact:** `models/model.pkl`, `notebooks/03_model_experiments.ipynb`, `docs/T-109-model-selection.md`
 
-- [ ] Single comparison table: every model × both targets × {MAE, RMSE, MAPE, R²,
+- [x] Single comparison table: every model × both targets × {MAE, RMSE, MAPE, R²,
       train time, inference time}.
-- [ ] Winner chosen on a **stated** trade-off between accuracy and inference latency,
+- [x] Winner chosen on a **stated** trade-off between accuracy and inference latency,
       not accuracy alone.
-- [ ] Error analysis of the winner: residuals by hour, by borough, by trip length,
+- [x] Error analysis of the winner: residuals by hour, by borough, by trip length,
       and on airport rate codes.
-- [ ] **The artifact is self-contained.** `models/model.pkl` bundles the fitted
+- [x] **The artifact is self-contained.** `models/model.pkl` bundles the fitted
       preprocessing pipeline, the model(s), the exact feature ordering, and a version
       string. It loads and predicts in a fresh interpreter with `src/` absent from
       `sys.path` — this is the acceptance test, because `src/` is not in the container.
-- [ ] `MODEL_PATH` contract settled: one bundle for both targets, or separate
+- [x] `MODEL_PATH` contract settled: one bundle for both targets, or separate
       `FARE_MODEL_PATH` / `DURATION_MODEL_PATH`. `.env.original` updated to match.
-- [ ] Runtime dependencies of the winning model written down and handed to T-114.
-- [ ] Reproduction instructions: exact commands from raw parquet to `model.pkl`.
+- [x] Runtime dependencies of the winning model written down and handed to T-114.
+- [x] Reproduction instructions: exact commands from raw parquet to `model.pkl`.
 
 ### T-110 · `API` · Real-time prediction backend API
 

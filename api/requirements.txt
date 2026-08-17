@@ -1,5 +1,9 @@
-fastapi
-uvicorn[standard]
-pydantic
-scikit-learn
-pandas
+# Runtime dependencies for serving container (T-114).
+# Ticket: T-109 (Winner: LightGBM 4.7.0)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.10.0
+scikit-learn>=1.5.0
+pandas>=2.2.0
+numpy>=1.26.0
+lightgbm==4.7.0
