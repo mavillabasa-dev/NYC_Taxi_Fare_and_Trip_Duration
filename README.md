@@ -364,19 +364,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-114 · `DEVOPS` · Containerisation and Docker configuration
 
-**Depends on:** T-110, T-111
+**Depends on:** T-109, T-110, T-111 — **Artifact:** `docker-compose.yml`, `Dockerfile.train`, `docs/T-114-containerisation.md`
 
-- [ ] `api/requirements.txt` **pinned** and containing the runtime library for the
+- [x] `api/requirements.txt` **pinned** and containing the runtime library for the
       winning model from T-109. Acceptance test: `make run` on a clean machine loads
       `model.pkl` without `ModuleNotFoundError`.
-- [ ] Obsolete `version: "3.9"` key removed from `docker-compose.yml` (Compose v2
+- [x] Obsolete `version: "3.9"` key removed from `docker-compose.yml` (Compose v2
       warns on it).
-- [ ] Dashboard service added to `docker-compose.yml` with the API reachable by
+- [x] Dashboard service added to `docker-compose.yml` with the API reachable by
       service name.
-- [ ] `models/` bind mount verified: a model retrained on the host is picked up by a
+- [x] `models/` bind mount verified: a model retrained on the host is picked up by a
       container restart with no rebuild.
-- [ ] Docker healthcheck wired to `GET /health`.
-- [ ] Documented: `.env` must be copied from `.env.original` before `make run`.
+- [x] Docker healthcheck wired to `GET /health`.
+- [x] Documented: `.env` must be copied from `.env.original` before `make run`.
 
 ### T-119 · `REVIEW` · Peer preview and feedback round
 
