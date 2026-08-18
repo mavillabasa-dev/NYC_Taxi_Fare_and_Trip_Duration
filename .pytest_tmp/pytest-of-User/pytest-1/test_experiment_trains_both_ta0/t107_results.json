@@ -1,0 +1,72 @@
+{
+  "ticket": "T-107",
+  "search_method": "RandomizedSearchCV with TimeSeriesSplit",
+  "library_versions": {
+    "lightgbm": "4.7.0",
+    "xgboost": "3.2.0"
+  },
+  "runs": [
+    {
+      "model_family": "lightgbm",
+      "target": "fare_amount",
+      "best_params": {
+        "subsample": 0.8,
+        "reg_lambda": 1.0,
+        "num_leaves": 127,
+        "n_estimators": 700,
+        "min_child_samples": 20,
+        "max_depth": 12,
+        "learning_rate": 0.05,
+        "colsample_bytree": 0.8
+      },
+      "cv_mae": 15.633604437950625,
+      "metrics": {
+        "mae": 14.28239680903768,
+        "rmse": 14.39553058091488,
+        "mape_pct": 30.66649141094367,
+        "r2": -20.365518220024057
+      },
+      "training_seconds": 0.09318239999993239,
+      "inference_ms_per_row": 1.1177733331957522,
+      "feature_importance": {
+        "trip_distance": 0.713727783622388,
+        "hour": 0.16491892758117238,
+        "PULocationID": 0.12135328879643967
+      },
+      "suspicious_features": [
+        "trip_distance"
+      ]
+    },
+    {
+      "model_family": "lightgbm",
+      "target": "duration_minutes",
+      "best_params": {
+        "subsample": 0.8,
+        "reg_lambda": 1.0,
+        "num_leaves": 127,
+        "n_estimators": 700,
+        "min_child_samples": 20,
+        "max_depth": 12,
+        "learning_rate": 0.05,
+        "colsample_bytree": 0.8
+      },
+      "cv_mae": 20.08771470843456,
+      "metrics": {
+        "mae": 18.861388678554746,
+        "rmse": 19.014123542266695,
+        "mape_pct": 31.14043079535666,
+        "r2": -21.841028570593878
+      },
+      "training_seconds": 0.06887240000651218,
+      "inference_ms_per_row": 0.9931033336518643,
+      "feature_importance": {
+        "trip_distance": 0.7146528395585818,
+        "hour": 0.1711750258914774,
+        "PULocationID": 0.11417213454994075
+      },
+      "suspicious_features": [
+        "trip_distance"
+      ]
+    }
+  ]
+}

@@ -341,16 +341,19 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 **Depends on:** T-110
 
-- [ ] The two test trees are reconciled: `tests/` (offline pipeline) and `api/tests/`
+- [x] The two test trees are reconciled: `tests/` (offline pipeline) and `api/tests/`
       (serving) both collect from the repo root via `conftest.py` / `sys.path`
       handling. `pytest` from the root runs everything green.
-- [ ] Unit tests for cleaning rules and feature engineering, including a leakage test
+- [x] Unit tests for cleaning rules and feature engineering, including a leakage test
       asserting no banned column reaches the model.
-- [ ] Integration test hitting `/predict` and `/health` with FastAPI's `TestClient`,
+- [x] Integration test hitting `/predict` and `/health` with FastAPI's `TestClient`,
       using a small fixture model artifact rather than the real one.
-- [ ] Schema validation tests for out-of-range and malformed payloads.
-- [ ] `pytest` declared in `requirements-dev.txt`; `make test` works from a clean
+- [x] Schema validation tests for out-of-range and malformed payloads.
+- [x] `pytest` declared in `requirements-dev.txt`; `make test` works from a clean
       environment.
+
+> Validation evidence: `pytest -q` from the repo root completed successfully with
+> `47 passed, 5 skipped` in the current environment.
 
 ### T-113 · `EVAL` · API benchmarking and latency optimisation
 
