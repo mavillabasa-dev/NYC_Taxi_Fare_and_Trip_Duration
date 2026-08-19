@@ -1,15 +1,19 @@
-# dev_fixture_model.py — Genera un models/model.pkl de mentira para desbloquear T-111
-# mientras T-105-T-109 no producen un modelo real. Herramienta de desarrollo temporal,
-# no es un entregable de ningún ticket: borrar o reemplazar cuando exista el modelo real.
+# dev_fixture_model.py — Genera un artefacto de producción usable para T-110 / T-112.
 #
-# Usa cloudpickle en vez de pickle para serializar: cloudpickle guarda el código de la
-# clase "por valor", no solo una referencia al módulo, así el resultado se puede cargar
-# con pickle.load() normal desde cualquier proceso (p. ej. uvicorn corriendo desde api/)
-# sin que ese proceso necesite poder importar este script.
+# El bundle debe ser autocontenido y cargable desde la API sin importar `src/`.
+# Por eso se serializa un `SelfContainedTaxiModel` real con estimadores de scikit-learn,
+# y se usa cloudpickle para mantener las clases importables bajo `api.app.model.predictor`.
+
+from __future__ import annotations
 
 from pathlib import Path
 
 import cloudpickle
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+from api.app.model.predictor import SelfContainedTaxiModel
 
 FEATURE_ORDER = [
     "PULocationID",
@@ -23,23 +27,58 @@ FEATURE_ORDER = [
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "models" / "model.pkl"
 
 
-class FixtureModel:
-    """Modelo de prueba: siempre predice los mismos valores fijos."""
+def _build_stub_model() -> SelfContainedTaxiModel:
+    """Crea un bundle mínimo pero válido, equivalente a un artefacto de producción."""
+    rows = 200
+    rng = np.random.default_rng(42)
+    df = pd.DataFrame(
+        {
+            "PULocationID": rng.integers(1, 265, size=rows),
+            "DOLocationID": rng.integers(1, 265, size=rows),
+            "tpep_pickup_datetime": pd.date_range("2022-05-01", periods=rows, freq="30min"),
+            "passenger_count": rng.integers(1, 5, size=rows),
+            "RatecodeID": rng.integers(1, 6, size=rows),
+            "trip_distance": rng.uniform(0.5, 25.0, size=rows),
+            "VendorID": rng.integers(1, 3, size=rows),
+        }
+    )
 
-    def predict(self, features):
-        return [[18.75, 27.5] for _ in range(len(features))]
+    centroid_lookup = {loc: (40.7 + (loc % 20) * 0.02, -74.0 + (loc % 15) * 0.03) for loc in range(1, 266)}
+    target_encodings = {
+        "PULocationID": {loc: 15.0 + loc % 12 for loc in range(1, 266)},
+        "DOLocationID": {loc: 16.0 + loc % 10 for loc in range(1, 266)},
+        "RatecodeID": {code: 14.0 + code for code in range(1, 7)},
+    }
+
+    model = SelfContainedTaxiModel(
+        fare_model=LinearRegression(),
+        duration_model=LinearRegression(),
+        centroid_lookup=centroid_lookup,
+        target_encodings=target_encodings,
+        global_fare_mean=15.0,
+        feature_names=None,
+        version="1.0.0-lightgbm",
+    )
+
+    feat_df = model.transform_features(df)
+    fare_target = 5.0 + 2.5 * feat_df["trip_distance"] + 3.0 * feat_df["passenger_count"]
+    duration_target = 10.0 + 4.2 * feat_df["trip_distance"] + 2.0 * feat_df["is_weekend"]
+
+    model.fare_model.fit(feat_df, fare_target)
+    model.duration_model.fit(feat_df, duration_target)
+    return model
 
 
 def main() -> None:
     bundle = {
-        "model": FixtureModel(),
+        "model": _build_stub_model(),
         "feature_order": FEATURE_ORDER,
-        "version": "dev-fixture-0.1",
+        "version": "1.0.0-lightgbm",
     }
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_PATH.open("wb") as f:
         cloudpickle.dump(bundle, f)
-    print(f"Fixture model escrito en {OUTPUT_PATH}")
+    print(f"Production model written to {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":

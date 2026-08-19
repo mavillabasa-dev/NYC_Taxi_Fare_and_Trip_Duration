@@ -46,6 +46,7 @@ def test_download_file_truncation_assertion(tmp_path):
         validate_file_size(str(test_file), min_expected_size=1000)
 
 
+@pytest.mark.requires_dataset
 def test_validate_parquet_dataset():
     """Test parquet row count and size validation on actual ingested parquet file."""
     assert os.path.exists(RAW_DATA_PATH), "Raw parquet file should exist for test"
@@ -53,6 +54,7 @@ def test_validate_parquet_dataset():
     assert rows >= 3_000_000
 
 
+@pytest.mark.requires_dataset
 def test_validate_lookup_csv():
     """Test zone lookup CSV validation."""
     assert os.path.exists(TAXI_ZONE_LOOKUP_PATH), "Lookup CSV should exist for test"
@@ -62,6 +64,7 @@ def test_validate_lookup_csv():
     assert rows >= 260
 
 
+@pytest.mark.requires_dataset
 def test_derive_zone_centroids():
     """Test spatial centroid derivation from shapefile and lookup table."""
     assert os.path.exists(TAXI_ZONE_LOOKUP_PATH), "Lookup CSV should exist for test"

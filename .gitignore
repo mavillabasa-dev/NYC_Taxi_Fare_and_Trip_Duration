@@ -4,6 +4,8 @@ venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+.pytest_cache/
+.pytest_tmp/
 dataset/*.parquet
 dataset/*.csv
 dataset/*.zip
@@ -12,5 +14,4 @@ models/*
 !models/.gitkeep
 .DS_Store
 mynotes.md
-dataset/taxi_zones/
 *.xlsx
