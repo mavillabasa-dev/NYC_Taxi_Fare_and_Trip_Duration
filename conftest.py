@@ -33,15 +33,17 @@ def pytest_collection_modifyitems(config, items):
         return
 
     for item in items:
+        has_marker = item.get_closest_marker("requires_dataset") is not None
         nodeid = item.nodeid.lower()
-        if any(
+        matches_name = any(
             keyword in nodeid
             for keyword in (
                 "test_validate_parquet_dataset",
                 "test_validate_lookup_csv",
                 "test_derive_zone_centroids",
             )
-        ):
+        )
+        if has_marker or matches_name:
             item.add_marker(
                 pytest.mark.skip(
                     reason="Dataset local no disponible; descarga/ingesta antes de ejecutar estas pruebas."
