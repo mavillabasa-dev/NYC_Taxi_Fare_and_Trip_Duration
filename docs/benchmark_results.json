@@ -1,0 +1,52 @@
+[
+  {
+    "scenario_name": "Baseline (DataFrame + Cold)",
+    "total_requests": 1000,
+    "concurrency": 10,
+    "success_count": 1000,
+    "error_count": 0,
+    "elapsed_seconds": 1.6715,
+    "throughput_rps": 598.3,
+    "cold_start_ms": 4.42,
+    "latency_mean_ms": 16.46,
+    "latency_std_ms": 5.45,
+    "latency_min_ms": 3.39,
+    "latency_p50_ms": 15.66,
+    "latency_p90_ms": 21.56,
+    "latency_p95_ms": 24.4,
+    "latency_p99_ms": 29.34,
+    "latency_max_ms": 65.5,
+    "sla_passed": false,
+    "component_breakdown_ms": {
+      "pydantic_validation_ms": 0.004,
+      "fast_predict_total_ms": 4.394,
+      "dataframe_transform_ms": 6.058,
+      "lightgbm_inference_ms": 2.993
+    }
+  },
+  {
+    "scenario_name": "Optimized (Fast Scalar + C-Booster)",
+    "total_requests": 1000,
+    "concurrency": 10,
+    "success_count": 1000,
+    "error_count": 0,
+    "elapsed_seconds": 1.571,
+    "throughput_rps": 636.5,
+    "cold_start_ms": 2.63,
+    "latency_mean_ms": 15.63,
+    "latency_std_ms": 5.12,
+    "latency_min_ms": 5.3,
+    "latency_p50_ms": 15.08,
+    "latency_p90_ms": 20.43,
+    "latency_p95_ms": 22.65,
+    "latency_p99_ms": 33.11,
+    "latency_max_ms": 52.31,
+    "sla_passed": false,
+    "component_breakdown_ms": {
+      "pydantic_validation_ms": 0.003,
+      "fast_predict_total_ms": 3.565,
+      "dataframe_transform_ms": 6.522,
+      "lightgbm_inference_ms": 2.198
+    }
+  }
+]
