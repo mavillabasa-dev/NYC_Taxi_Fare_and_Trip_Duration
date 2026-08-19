@@ -1,8 +1,6 @@
 """Configuración compartida para recolectar los dos árboles de tests."""
 
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -15,11 +13,13 @@ for path in (ROOT_DIR, API_DIR):
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-pytest_tmp_dir = ROOT_DIR / ".pytest_tmp"
-pytest_tmp_dir.mkdir(exist_ok=True)
-for env_var in ("TMPDIR", "TEMP", "TMP"):
-    os.environ[env_var] = str(pytest_tmp_dir)
-tempfile.tempdir = str(pytest_tmp_dir)
+
+def pytest_configure(config):
+    """Registrar marcadores personalizados de pytest."""
+    config.addinivalue_line(
+        "markers",
+        "requires_dataset: marca tests que requieren los archivos reales en dataset/",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
