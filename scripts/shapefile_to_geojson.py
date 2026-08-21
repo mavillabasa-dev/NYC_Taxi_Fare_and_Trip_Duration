@@ -1,7 +1,7 @@
-# shapefile_to_geojson.py — Convierte el shapefile de zonas de NYC (T-116) a GeoJSON
-# para el choropleth de T-111. Script one-off: se corre una sola vez, en el host, con
-# geopandas (root requirements.txt) — el contenedor de ui/ nunca necesita geopandas/GDAL,
-# solo lee el .geojson ya generado.
+# shapefile_to_geojson.py — Converts NYC taxi zones shapefile (T-116) to GeoJSON
+# for the T-111 choropleth. One-off script: runs once on the host with
+# geopandas (root requirements.txt) — the ui/ container never needs geopandas/GDAL,
+# it only reads the pre-generated .geojson.
 
 from pathlib import Path
 
@@ -16,15 +16,15 @@ def find_shapefile() -> Path:
 	candidates = list(SHAPEFILE_SEARCH_DIR.rglob("*.shp"))
 	if not candidates:
 		raise FileNotFoundError(
-			f"No se encontró ningún .shp bajo {SHAPEFILE_SEARCH_DIR}. "
-			"Corré la ingesta de T-116 primero (ver Tarea 8 del plan: python -m src.data_utils)."
+			f"No .shp found under {SHAPEFILE_SEARCH_DIR}. "
+			"Run T-116 data ingestion first (python -m src.data_utils)."
 		)
 	return candidates[0]
 
 
 def main() -> None:
 	shp_path = find_shapefile()
-	print(f"Leyendo shapefile desde {shp_path}...")
+	print(f"Reading shapefile from {shp_path}...")
 	gdf = gpd.read_file(shp_path)
 
 	if gdf.crs is not None and gdf.crs.to_epsg() != 4326:
@@ -34,7 +34,7 @@ def main() -> None:
 	if OUTPUT_PATH.exists():
 		OUTPUT_PATH.unlink()
 	gdf.to_file(OUTPUT_PATH, driver="GeoJSON")
-	print(f"GeoJSON escrito en {OUTPUT_PATH} ({len(gdf)} zonas)")
+	print(f"GeoJSON written to {OUTPUT_PATH} ({len(gdf)} zones)")
 
 
 if __name__ == "__main__":

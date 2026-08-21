@@ -1,4 +1,4 @@
-"""Esquemas de entrada y salida del modelo."""
+"""Input and output schemas for the model."""
 
 from datetime import datetime
 

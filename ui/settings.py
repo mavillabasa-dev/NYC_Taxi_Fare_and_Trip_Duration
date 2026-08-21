@@ -1,4 +1,4 @@
-"""Configuración de entorno para el dashboard."""
+"""Environment configuration for the dashboard."""
 
 import os
 from dataclasses import dataclass

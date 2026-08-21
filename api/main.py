@@ -1,4 +1,4 @@
-"""Punto de entrada de la aplicación FastAPI."""
+"""FastAPI application entry point."""
 
 from contextlib import asynccontextmanager
 from typing import AsyncIterator

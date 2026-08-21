@@ -1,4 +1,4 @@
-"""Mapa de puntos: muestra el pickup y el dropoff del viaje predicho sobre NYC."""
+"""Point map: displays pickup and dropoff of the predicted trip on NYC."""
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -13,7 +13,7 @@ def render(pu_location_id: int, do_location_id: int) -> None:
 	do_row = zones[zones.LocationID == do_location_id]
 
 	if pu_row.empty or do_row.empty:
-		st.info("No hay datos de zona para mostrar en el mapa.")
+		st.info("No zone data available to display on map.")
 		return
 
 	pu_row = pu_row.iloc[0]
@@ -21,8 +21,8 @@ def render(pu_location_id: int, do_location_id: int) -> None:
 
 	if pd.isna(pu_row.longitude) or pd.isna(do_row.longitude):
 		st.info(
-			"Una de las zonas elegidas no tiene coordenadas conocidas "
-			"(p. ej. 'Outside of NYC'), no se puede dibujar en el mapa."
+			"One of the selected zones does not have known GPS coordinates "
+			"(e.g. 'Outside of NYC') and cannot be rendered on the map."
 		)
 		return
 

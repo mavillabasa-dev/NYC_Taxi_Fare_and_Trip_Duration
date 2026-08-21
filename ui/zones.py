@@ -1,4 +1,4 @@
-"""Carga y cachea el catálogo de zonas de NYC (nombre, borough, coordenadas)."""
+"""Loads and caches the NYC taxi zones catalog (zone name, borough, coordinates)."""
 
 from pathlib import Path
 

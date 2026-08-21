@@ -1,4 +1,4 @@
-"""Formulario de predicción: recolecta los datos del viaje y llama a la API."""
+"""Prediction form: collects trip data and calls the API."""
 
 import streamlit as st
 
@@ -52,9 +52,9 @@ def render() -> None:
 			"trip_distance": distance,
 		}
 		status_code, body = api_client.predict(payload)
-		# Se guarda en session_state porque el resultado tiene que sobrevivir a
-		# reruns disparados por OTROS widgets (ej. el checkbox del choropleth) —
-		# `submitted` solo es True en el rerun exacto del click en "Predict".
+		# Saved in session_state because the result must survive reruns
+		# triggered by OTHER widgets (e.g. the choropleth checkbox) —
+		# `submitted` is only True on the exact rerun of clicking "Predict".
 		st.session_state["last_prediction"] = {
 			"status_code": status_code,
 			"body": body,
@@ -73,7 +73,7 @@ def _render_result(status_code: int, body: dict, payload: dict) -> None:
 		col2.metric("Predicted duration", f"{body['predicted_duration_minutes']:.1f} min")
 		trip_map.render(payload["PULocationID"], payload["DOLocationID"])
 
-		if st.checkbox("Mostrar choropleth de tarifas por zona (llama a la API ~263 veces)"):
+		if st.checkbox("Show fare choropleth map across zones (calls API ~263 times)"):
 			choropleth.render(
 				payload["PULocationID"],
 				payload["tpep_pickup_datetime"],
@@ -81,13 +81,13 @@ def _render_result(status_code: int, body: dict, payload: dict) -> None:
 				payload["RatecodeID"],
 			)
 	elif status_code == 0:
-		st.error(f"No se pudo contactar la API. ¿Está corriendo? Detalle: {body.get('detail')}")
+		st.error(f"Could not connect to API. Is the server running? Details: {body.get('detail')}")
 	elif status_code == 503:
-		st.error(f"El modelo todavía no está cargado en la API. Detalle: {body.get('detail')}")
+		st.error(f"Model is not loaded yet in API. Details: {body.get('detail')}")
 	elif status_code == 422:
-		st.error(f"Datos inválidos:\n\n{_format_validation_errors(body.get('detail'))}")
+		st.error(f"Invalid input:\n\n{_format_validation_errors(body.get('detail'))}")
 	else:
-		st.error(f"Error inesperado ({status_code}): {body.get('detail')}")
+		st.error(f"Unexpected error ({status_code}): {body.get('detail')}")
 
 
 def _format_validation_errors(detail) -> str:
