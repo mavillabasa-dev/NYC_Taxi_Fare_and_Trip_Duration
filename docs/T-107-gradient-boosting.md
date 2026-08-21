@@ -48,7 +48,7 @@ python -m src.gradient_boosting \
   --train dataset/train_cleaned.parquet \
   --test dataset/test_cleaned.parquet \
   --transformer models/feature_pipeline.pkl \
-  --output-dir models/t107
+  --output-dir models/gbm
 ```
 
 For a quick smoke run, add `--n-iter 1 --n-jobs 1`. The output directory contains
@@ -65,7 +65,7 @@ workers on a 16 GB Mac or four on a Mac with at least 32 GB:
 # 16 GB M2 Pro
 python -m src.gradient_boosting \
   --transformer models/feature_pipeline.pkl \
-  --output-dir models/t107 --n-jobs 2
+  --output-dir models/gbm --n-jobs 2
 ```
 
 ## Leakage audit
@@ -81,7 +81,7 @@ The raw data, cleaned splits, fitted T-105 pipeline, and T-107 candidate models 
 local artifacts under the gitignored `dataset/` and `models/` directories. Generate
 them with the repository scripts before running this experiment. The metrics from
 the completed run are recorded below. The generated
-`models/t107/t107_results.json` is T-109's machine-readable comparison-table input.
+`models/gbm/t107_results.json` is T-109's machine-readable comparison-table input.
 
 ## Results
 
@@ -105,7 +105,7 @@ both targets. Final model selection and construction of the API-compatible
 No feature exceeded the 65% dominance threshold in any run. The largest normalized
 importance was 43.02% for the LightGBM duration model, so the automated review did
 not flag a suspiciously dominant feature. The full normalized importance vectors
-and best hyperparameters are retained in `models/t107/t107_results.json`.
+and best hyperparameters are retained in `models/gbm/t107_results.json`.
 
 The candidate `.joblib` files and JSON report are reproducible local artifacts and
 remain gitignored. They are not the final serving artifact; T-109 will select and
