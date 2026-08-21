@@ -1,4 +1,4 @@
-"""Carga del artefacto y servicio de predicción."""
+"""Model artifact loading and prediction service."""
 
 import pickle
 from pathlib import Path
@@ -97,7 +97,7 @@ class ModelService:
             predicted_fare, predicted_duration = prediction[0]
         except (IndexError, TypeError, ValueError) as exc:
             raise RuntimeError(
-                "Model must return [fare, duration] for each input row"
+				"Model must return [fare, duration] for each input row"
             ) from exc
 
         return PredictionResponse(

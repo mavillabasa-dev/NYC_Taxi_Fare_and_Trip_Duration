@@ -1,4 +1,4 @@
-"""Configuración compartida para recolectar los dos árboles de tests."""
+"""Shared configuration to collect from both test trees."""
 
 import sys
 from pathlib import Path
@@ -15,15 +15,15 @@ for path in (ROOT_DIR, API_DIR):
 
 
 def pytest_configure(config):
-    """Registrar marcadores personalizados de pytest."""
+    """Register custom pytest markers."""
     config.addinivalue_line(
         "markers",
-        "requires_dataset: marca tests que requieren los archivos reales en dataset/",
+        "requires_dataset: marks tests that require actual dataset files in dataset/",
     )
 
 
 def pytest_collection_modifyitems(config, items):
-    """Omitir pruebas que necesitan datos locales no descargados."""
+    """Skip tests that require local dataset files if not downloaded."""
     dataset_dir = ROOT_DIR / "dataset"
     parquet_exists = (dataset_dir / "yellow_tripdata_2022-05.parquet").exists()
     lookup_exists = (dataset_dir / "taxi_zone_lookup.csv").exists()
@@ -46,6 +46,6 @@ def pytest_collection_modifyitems(config, items):
         if has_marker or matches_name:
             item.add_marker(
                 pytest.mark.skip(
-                    reason="Dataset local no disponible; descarga/ingesta antes de ejecutar estas pruebas."
+                    reason="Local dataset not available; download/ingest before running these tests."
                 )
             )

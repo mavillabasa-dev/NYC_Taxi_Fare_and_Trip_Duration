@@ -1,4 +1,4 @@
-"""Configuración de entorno para la API."""
+"""Environment configuration for the API."""
 
 import os
 from dataclasses import dataclass

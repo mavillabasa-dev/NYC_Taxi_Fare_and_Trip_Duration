@@ -1,8 +1,8 @@
-# dev_fixture_model.py — Genera un artefacto de producción usable para T-110 / T-112.
+# dev_fixture_model.py — Generates a usable model artifact for T-110 / T-112 development.
 #
-# El bundle debe ser autocontenido y cargable desde la API sin importar `src/`.
-# Por eso se serializa un `SelfContainedTaxiModel` real con estimadores de scikit-learn,
-# y se usa cloudpickle para mantener las clases importables bajo `api.app.model.predictor`.
+# The bundle must be self-contained and loadable from the API without importing `src/`.
+# It serializes a real `SelfContainedTaxiModel` with scikit-learn estimators,
+# using cloudpickle to keep classes importable under `api.app.model.predictor`.
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ OUTPUT_PATH = Path(__file__).resolve().parent.parent / "models" / "model.pkl"
 
 
 def _build_stub_model() -> SelfContainedTaxiModel:
-    """Crea un bundle mínimo pero válido, equivalente a un artefacto de producción."""
+    """Creates a minimal but valid bundle, equivalent to a production artifact."""
     rows = 200
     rng = np.random.default_rng(42)
     df = pd.DataFrame(

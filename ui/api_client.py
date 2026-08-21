@@ -1,4 +1,4 @@
-"""Cliente HTTP para consumir la API de predicción (T-110)."""
+"""HTTP client to consume the prediction API (T-110)."""
 
 import requests
 

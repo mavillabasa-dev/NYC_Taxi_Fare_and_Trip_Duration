@@ -1,4 +1,4 @@
-"""Endpoints de predicción y salud del modelo."""
+"""Prediction and model health endpoints."""
 
 from fastapi import APIRouter, HTTPException, Request, status
 

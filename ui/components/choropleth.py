@@ -1,9 +1,8 @@
-"""Choropleth: tarifa predicha desde la zona de pickup elegida hacia el resto de NYC.
+"""Choropleth: Predicted fare from the selected pickup zone to the rest of NYC.
 
-Nota de aproximación: no existe una distancia de ruteo real para pares de zonas que
-todavía no fueron viajados, así que se usa la distancia haversine entre centroides como
-proxy de `trip_distance` en cada llamada a /predict — mismo tipo de aproximación
-documentada para `trip_distance` en el resto del proyecto (ver README, sección Dataset).
+Approximation note: No actual road routing distance exists for unvisited zone pairs,
+so Haversine centroid distance is used as a proxy for `trip_distance` in each /predict call —
+the same approximation documented for `trip_distance` throughout the project (see README, Dataset section).
 """
 
 import json
@@ -41,12 +40,12 @@ def _predict_grid(pu_location_id: int, pickup_dt: str, passengers: int) -> pd.Da
 
 	rows = []
 	total = len(zones)
-	progress = st.progress(0.0, text="Calculando tarifas por zona...")
+	progress = st.progress(0.0, text="Calculating fares across zones...")
 	for i, (_, do_row) in enumerate(zones.iterrows()):
 		distance = haversine_miles(pu_row.latitude, pu_row.longitude, do_row.latitude, do_row.longitude)
 		distance = min(max(distance, MIN_TRIP_DISTANCE_MILES), MAX_TRIP_DISTANCE_MILES)
-		# El rate code se infiere por cada par (pickup, dropoff) — no es un valor
-		# fijo para las 263 filas, igual que en el formulario principal.
+		# Rate code is inferred per (pickup, dropoff) pair — not a fixed
+		# value across all rows, matching the main form.
 		do_location_id = int(do_row.LocationID)
 		payload = {
 			"PULocationID": int(pu_location_id),
@@ -59,7 +58,7 @@ def _predict_grid(pu_location_id: int, pickup_dt: str, passengers: int) -> pd.Da
 		status_code, body = api_client.predict(payload)
 		if status_code == 200:
 			rows.append({"LocationID": do_location_id, "predicted_fare": body["predicted_fare"]})
-		progress.progress((i + 1) / total, text=f"Calculando tarifas por zona... ({i + 1}/{total})")
+		progress.progress((i + 1) / total, text=f"Calculating fares across zones... ({i + 1}/{total})")
 	progress.empty()
 	return pd.DataFrame(rows)
 
@@ -68,7 +67,7 @@ def render(pu_location_id: int, pickup_dt: str, passengers: int) -> None:
 	grid = _predict_grid(pu_location_id, pickup_dt, passengers)
 
 	if grid.empty:
-		st.info("No se pudieron calcular tarifas para el choropleth (zona de pickup sin coordenadas).")
+		st.info("Could not calculate fares for choropleth map (pickup zone lacks coordinates).")
 		return
 
 	fig = px.choropleth_mapbox(
