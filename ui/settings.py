@@ -36,10 +36,19 @@ HTTP_STATUS_UNPROCESSABLE = 422
 HTTP_STATUS_UNAVAILABLE = 503
 
 
+def _get_default_dataset_dir() -> str:
+	if os.path.exists("dataset"):
+		return "dataset"
+	repo_root_dataset = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dataset")
+	if os.path.exists(repo_root_dataset):
+		return repo_root_dataset
+	return "../dataset"
+
+
 @dataclass(frozen=True)
 class Settings:
 	api_url: str = os.getenv("API_URL", "http://localhost:8000")
-	dataset_dir: str = os.getenv("DATASET_DIR", "../dataset")
+	dataset_dir: str = os.getenv("DATASET_DIR", _get_default_dataset_dir())
 
 
 settings = Settings()
