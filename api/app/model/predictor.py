@@ -13,17 +13,20 @@ and lightgbm.
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 
+EARTH_RADIUS_MILES = 3958.8
+
+
 def _haversine_np(
     lat1: np.ndarray, lon1: np.ndarray, lat2: np.ndarray, lon2: np.ndarray
 ) -> np.ndarray:
     """Calculates great-circle Haversine distance in miles between coordinate arrays."""
-    r_miles = 3958.8
     phi1 = np.radians(lat1)
     phi2 = np.radians(lat2)
     dphi = np.radians(lat2 - lat1)
@@ -33,7 +36,7 @@ def _haversine_np(
         np.sin(dphi / 2.0) ** 2
         + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
     )
-    return 2.0 * r_miles * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
+    return 2.0 * EARTH_RADIUS_MILES * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
 
 
 def _manhattan_np(
@@ -175,6 +178,140 @@ class SelfContainedTaxiModel:
             df_out = df_out[self.feature_names]
 
         return df_out
+
+    def predict_fast(self, payload: dict) -> Tuple[float, float]:
+        """
+        High-performance single-row prediction path (T-113 optimization).
+        Bypasses pandas DataFrame allocation, using fast scalar math and direct booster inference.
+        """
+        dt_raw = payload["tpep_pickup_datetime"]
+        if isinstance(dt_raw, str):
+            dt = datetime.fromisoformat(dt_raw)
+        else:
+            dt = dt_raw
+
+        hour = dt.hour
+        dayofweek = dt.weekday()
+        day = dt.day
+
+        pu_id = int(payload["PULocationID"])
+        do_id = int(payload["DOLocationID"])
+        ratecode = int(payload["RatecodeID"])
+        passengers = float(payload.get("passenger_count", 1))
+        trip_dist = float(payload.get("trip_distance", 1.0))
+        vendor_id = float(payload.get("VendorID", 2))
+
+        sin_hour = math.sin(2.0 * math.pi * hour / 24.0)
+        cos_hour = math.cos(2.0 * math.pi * hour / 24.0)
+        sin_dow = math.sin(2.0 * math.pi * dayofweek / 7.0)
+        cos_dow = math.cos(2.0 * math.pi * dayofweek / 7.0)
+
+        is_weekend = 1.0 if dayofweek >= 5 else 0.0
+        is_weekday = dayofweek < 5
+        is_am_rush = 1.0 if (7 <= hour <= 9) else 0.0
+        is_pm_rush = 1.0 if (16 <= hour <= 19) else 0.0
+        is_rush_hour = 1.0 if (is_weekday and (is_am_rush or is_pm_rush)) else 0.0
+        is_holiday = 1.0 if (dt.month == 5 and dt.day == 30) else 0.0
+
+        pu_coords = self.centroid_lookup.get(pu_id, (0.0, 0.0))
+        do_coords = self.centroid_lookup.get(do_id, (0.0, 0.0))
+        pu_lat = pu_coords[0] if not math.isnan(pu_coords[0]) else 0.0
+        pu_lon = pu_coords[1] if not math.isnan(pu_coords[1]) else 0.0
+        do_lat = do_coords[0] if not math.isnan(do_coords[0]) else 0.0
+        do_lon = do_coords[1] if not math.isnan(do_coords[1]) else 0.0
+
+        # Fast Haversine scalar
+        phi1 = math.radians(pu_lat)
+        phi2 = math.radians(do_lat)
+        dphi = math.radians(do_lat - pu_lat)
+        dlambda = math.radians(do_lon - pu_lon)
+        a = (
+            math.sin(dphi / 2.0) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+        )
+        haversine = (
+            2.0 * EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(max(0.0, a))))
+        )
+
+        # Fast Manhattan scalar
+        lat_mid = math.radians((pu_lat + do_lat) / 2.0)
+        dlat_miles = abs(do_lat - pu_lat) * 69.0
+        dlon_miles = abs(do_lon - pu_lon) * 69.0 * math.cos(lat_mid)
+        manhattan = dlat_miles + dlon_miles
+
+        haversine_ratio = min(max(haversine / (trip_dist + 0.001), 0.0), 10.0)
+        is_same_zone = 1.0 if pu_id == do_id else 0.0
+        is_jfk = 1.0 if (ratecode == 2 or pu_id == 132 or do_id == 132) else 0.0
+        is_newark = 1.0 if (ratecode == 3 or pu_id == 1 or do_id == 1) else 0.0
+
+        pu_te = float(
+            self.target_encodings.get("PULocationID", {}).get(
+                pu_id, self.global_fare_mean
+            )
+        )
+        do_te = float(
+            self.target_encodings.get("DOLocationID", {}).get(
+                do_id, self.global_fare_mean
+            )
+        )
+        rate_te = float(
+            self.target_encodings.get("RatecodeID", {}).get(
+                ratecode, self.global_fare_mean
+            )
+        )
+
+        feat_vec = [
+            float(pu_id),
+            float(do_id),
+            passengers,
+            float(ratecode),
+            trip_dist,
+            vendor_id,
+            float(hour),
+            float(dayofweek),
+            float(day),
+            sin_hour,
+            cos_hour,
+            sin_dow,
+            cos_dow,
+            is_weekend,
+            is_rush_hour,
+            is_holiday,
+            pu_lat,
+            pu_lon,
+            do_lat,
+            do_lon,
+            haversine,
+            manhattan,
+            haversine_ratio,
+            is_same_zone,
+            is_jfk,
+            is_newark,
+            pu_te,
+            do_te,
+            rate_te,
+        ]
+        feat_arr = np.array([feat_vec], dtype=np.float64)
+
+        fare_booster = getattr(self.fare_model, "booster_", self.fare_model)
+        dur_booster = getattr(self.duration_model, "booster_", self.duration_model)
+
+        pred_fare = float(fare_booster.predict(feat_arr)[0])
+        pred_dur = float(dur_booster.predict(feat_arr)[0])
+
+        return max(pred_fare, 2.50), max(pred_dur, 0.5)
+
+    def warm_up(self) -> None:
+        """Warms up booster threads and inference buffers during application startup."""
+        dummy_payload = {
+            "PULocationID": 132,
+            "DOLocationID": 236,
+            "tpep_pickup_datetime": "2022-05-20T14:30:00",
+            "passenger_count": 2,
+            "RatecodeID": 1,
+            "trip_distance": 6.2,
+        }
+        self.predict_fast(dummy_payload)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """Predicts fare_amount and duration_minutes for given raw input DataFrame."""

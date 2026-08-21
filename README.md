@@ -357,13 +357,13 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-113 · `EVAL` · API benchmarking and latency optimisation
 
-**Depends on:** T-110
+**Depends on:** T-110 — **Artifact:** `scripts/benchmark_api.py`, `docs/T-113-benchmarking.md`, `docs/benchmark_results.json`
 
-- [ ] Load test against `/predict` reporting p50 / p95 / p99 latency and throughput.
-- [ ] Stated latency budget and a measurement showing whether it is met.
-- [ ] At least one optimisation attempted and measured before/after (batching, warm
+- [x] Load test against `/predict` reporting p50 / p95 / p99 latency and throughput.
+- [x] Stated latency budget and a measurement showing whether it is met.
+- [x] At least one optimisation attempted and measured before/after (batching, warm
       start, lighter model, feature-computation caching).
-- [ ] Benchmark is a committed, re-runnable script — not a one-off terminal session.
+- [x] Benchmark is a committed, re-runnable script — not a one-off terminal session.
 
 ### T-114 · `DEVOPS` · Containerisation and Docker configuration
 
