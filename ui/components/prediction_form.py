@@ -73,7 +73,7 @@ def _render_result(status_code: int, body: dict, payload: dict) -> None:
 		col2.metric("Predicted duration", f"{body['predicted_duration_minutes']:.1f} min")
 		trip_map.render(payload["PULocationID"], payload["DOLocationID"])
 
-		if st.checkbox("Show fare choropleth map across zones (calls API ~263 times)"):
+		if st.checkbox("Show predicted fares to all NYC dropoff zones"):
 			choropleth.render(
 				payload["PULocationID"],
 				payload["tpep_pickup_datetime"],

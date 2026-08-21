@@ -11,11 +11,11 @@ st.title("NYC Taxi Fare & Trip Duration Predictor")
 health = api_client.get_health()
 
 if health.get("status") == "unreachable":
-	st.error(f"Could not connect to API: {health.get('detail')}")
+	st.error(f"Could not connect to prediction service: {health.get('detail')}")
 elif health.get("model_loaded"):
-	st.success(f"API Connected — Model loaded (version {health.get('model_version')})")
+	st.success("Prediction service is online and ready")
 else:
-	st.warning(f"API Connected, but model is not loaded: {health.get('detail')}")
+	st.warning(f"Prediction service is online, but model is not loaded: {health.get('detail')}")
 
 st.divider()
 prediction_form.render()
