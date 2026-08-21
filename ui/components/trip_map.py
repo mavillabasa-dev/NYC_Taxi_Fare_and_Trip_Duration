@@ -4,6 +4,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from settings import (
+	DEFAULT_POINT_MAP_ZOOM,
+	DROPOFF_MARKER_COLOR,
+	MARKER_SIZE,
+	PICKUP_MARKER_COLOR,
+	POINT_MAP_HEIGHT,
+)
 from zones import load_zones
 
 
@@ -33,17 +40,17 @@ def render(pu_location_id: int, do_location_id: int) -> None:
 			mode="markers+text",
 			text=["Pickup", "Dropoff"],
 			textposition="top center",
-			marker=dict(size=14, color=["#2ecc71", "#e74c3c"]),
+			marker=dict(size=MARKER_SIZE, color=[PICKUP_MARKER_COLOR, DROPOFF_MARKER_COLOR]),
 		)
 	)
 	fig.update_layout(
 		mapbox_style="carto-positron",
-		mapbox_zoom=10,
+		mapbox_zoom=DEFAULT_POINT_MAP_ZOOM,
 		mapbox_center={
 			"lat": (pu_row.latitude + do_row.latitude) / 2,
 			"lon": (pu_row.longitude + do_row.longitude) / 2,
 		},
 		margin=dict(l=0, r=0, t=0, b=0),
-		height=400,
+		height=POINT_MAP_HEIGHT,
 	)
 	st.plotly_chart(fig, use_container_width=True)

@@ -31,7 +31,25 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from src.config import (
     ALLOWED_FEATURES,
+    AM_RUSH_END_HOUR,
+    AM_RUSH_START_HOUR,
+    DAYS_IN_WEEK,
+    DEFAULT_GLOBAL_FARE_MEAN,
+    DEFAULT_TARGET_ENCODING_SMOOTHING,
+    EARTH_RADIUS_MILES,
+    EPSILON_DISTANCE,
+    HOURS_IN_DAY,
+    JFK_AIRPORT_ZONE_ID,
+    JFK_RATECODE_ID,
+    MAX_HAVERSINE_RATIO,
+    MEMORIAL_DAY_DAY,
+    MEMORIAL_DAY_MONTH,
+    MILES_PER_DEGREE_LATITUDE,
     MODELS_DIR,
+    NEWARK_AIRPORT_ZONE_ID,
+    NEWARK_RATECODE_ID,
+    PM_RUSH_END_HOUR,
+    PM_RUSH_START_HOUR,
     RANDOM_SEED,
     TAXI_ZONE_CENTROIDS_PATH,
     TAXI_ZONE_LOOKUP_PATH,
@@ -53,7 +71,7 @@ def calculate_haversine_distance(
     Calculates great-circle Haversine distance in miles between two latitude/longitude points.
     Earth radius R = 3958.8 miles.
     """
-    R = 3958.8
+    R = EARTH_RADIUS_MILES
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
@@ -76,8 +94,8 @@ def calculate_manhattan_distance(
     1 degree latitude ~ 69.0 miles; 1 degree longitude ~ 69.0 * cos(avg_lat) miles.
     """
     lat_mid = np.radians((lat1 + lat2) / 2.0)
-    dlat_miles = np.abs(lat2 - lat1) * 69.0
-    dlon_miles = np.abs(lon2 - lon1) * 69.0 * np.cos(lat_mid)
+    dlat_miles = np.abs(lat2 - lat1) * MILES_PER_DEGREE_LATITUDE
+    dlon_miles = np.abs(lon2 - lon1) * MILES_PER_DEGREE_LATITUDE * np.cos(lat_mid)
     return dlat_miles + dlon_miles
 
 
@@ -108,22 +126,24 @@ class TemporalFeatureExtractor(BaseEstimator, TransformerMixin):
         X_out["pickup_day"] = day.astype(int)
 
         # Cyclical encodings
-        X_out["sin_hour"] = np.sin(2.0 * np.pi * hour / 24.0)
-        X_out["cos_hour"] = np.cos(2.0 * np.pi * hour / 24.0)
-        X_out["sin_dayofweek"] = np.sin(2.0 * np.pi * dayofweek / 7.0)
-        X_out["cos_dayofweek"] = np.cos(2.0 * np.pi * dayofweek / 7.0)
+        X_out["sin_hour"] = np.sin(2.0 * np.pi * hour / HOURS_IN_DAY)
+        X_out["cos_hour"] = np.cos(2.0 * np.pi * hour / HOURS_IN_DAY)
+        X_out["sin_dayofweek"] = np.sin(2.0 * np.pi * dayofweek / DAYS_IN_WEEK)
+        X_out["cos_dayofweek"] = np.cos(2.0 * np.pi * dayofweek / DAYS_IN_WEEK)
 
         # Binary indicator flags
         X_out["is_weekend"] = (dayofweek >= 5).astype(int)
 
         # Rush hour: Weekdays 7-9 AM and 4-7 PM (16-19)
         is_weekday = dayofweek < 5
-        is_am_rush = (hour >= 7) & (hour <= 9)
-        is_pm_rush = (hour >= 16) & (hour <= 19)
+        is_am_rush = (hour >= AM_RUSH_START_HOUR) & (hour <= AM_RUSH_END_HOUR)
+        is_pm_rush = (hour >= PM_RUSH_START_HOUR) & (hour <= PM_RUSH_END_HOUR)
         X_out["is_rush_hour"] = (is_weekday & (is_am_rush | is_pm_rush)).astype(int)
 
         # US Holiday: Memorial Day May 30, 2022
-        X_out["is_holiday"] = ((dt.dt.month == 5) & (dt.dt.day == 30)).astype(int)
+        X_out["is_holiday"] = (
+            (dt.dt.month == MEMORIAL_DAY_MONTH) & (dt.dt.day == MEMORIAL_DAY_DAY)
+        ).astype(int)
 
         return X_out
 
@@ -182,21 +202,25 @@ class SpatialZoneFeatureExtractor(BaseEstimator, TransformerMixin):
 
         # Distance ratio: Haversine distance relative to trip_distance
         X_out["haversine_ratio"] = (
-            X_out["haversine_distance"] / (X_out["trip_distance"] + 0.001)
-        ).clip(upper=10.0)
+            X_out["haversine_distance"] / (X_out["trip_distance"] + EPSILON_DISTANCE)
+        ).clip(upper=MAX_HAVERSINE_RATIO)
 
         # Categorical spatial indicators
-        X_out["is_same_zone"] = (X_out["PULocationID"] == X_out["DOLocationID"]).astype(
-            int
-        )
+        X_out["is_same_zone"] = (
+            X_out["PULocationID"] == X_out["DOLocationID"]
+        ).astype(int)
 
         # Airport flags (JFK = RatecodeID 2 or Zone 132; Newark = RatecodeID 3 or Zone 1)
-        is_jfk_rate = X_out["RatecodeID"] == 2
-        is_jfk_zone = (X_out["PULocationID"] == 132) | (X_out["DOLocationID"] == 132)
+        is_jfk_rate = X_out["RatecodeID"] == JFK_RATECODE_ID
+        is_jfk_zone = (X_out["PULocationID"] == JFK_AIRPORT_ZONE_ID) | (
+            X_out["DOLocationID"] == JFK_AIRPORT_ZONE_ID
+        )
         X_out["is_jfk"] = (is_jfk_rate | is_jfk_zone).astype(int)
 
-        is_newark_rate = X_out["RatecodeID"] == 3
-        is_newark_zone = (X_out["PULocationID"] == 1) | (X_out["DOLocationID"] == 1)
+        is_newark_rate = X_out["RatecodeID"] == NEWARK_RATECODE_ID
+        is_newark_zone = (X_out["PULocationID"] == NEWARK_AIRPORT_ZONE_ID) | (
+            X_out["DOLocationID"] == NEWARK_AIRPORT_ZONE_ID
+        )
         X_out["is_newark"] = (is_newark_rate | is_newark_zone).astype(int)
 
         return X_out
@@ -209,7 +233,7 @@ class TargetCategoricalEncoder(BaseEstimator, TransformerMixin):
     Uses Bayesian smoothing to handle low-sample categories cleanly.
     """
 
-    def __init__(self, smoothing: float = 10.0) -> None:
+    def __init__(self, smoothing: float = DEFAULT_TARGET_ENCODING_SMOOTHING) -> None:
         self.smoothing = smoothing
         self.global_means_: Dict[str, float] = {}
         self.target_maps_: Dict[str, Dict[Any, float]] = {}

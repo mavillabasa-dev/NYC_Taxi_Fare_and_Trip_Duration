@@ -4,14 +4,24 @@ import streamlit as st
 
 import api_client
 from components import choropleth, trip_map
+from settings import (
+	DEFAULT_DROPOFF_ZONE_ID,
+	DEFAULT_PASSENGER_COUNT,
+	DEFAULT_PICKUP_DATETIME,
+	DEFAULT_PICKUP_ZONE_ID,
+	DEFAULT_RATECODE,
+	DEFAULT_TRIP_DISTANCE_MILES,
+	HTTP_STATUS_OK,
+	HTTP_STATUS_UNAVAILABLE,
+	HTTP_STATUS_UNPROCESSABLE,
+	HTTP_STATUS_UNREACHABLE,
+	PASSENGER_MAX,
+	PASSENGER_MIN,
+	RATECODES,
+	TRIP_DISTANCE_MAX,
+	TRIP_DISTANCE_MIN,
+)
 from zones import load_zones
-
-PASSENGER_MIN, PASSENGER_MAX = 1, 9
-RATECODES = [1, 2, 3, 4, 5, 6]
-TRIP_DISTANCE_MIN, TRIP_DISTANCE_MAX = 0.1, 150.0
-
-DEFAULT_PICKUP_ZONE_ID = 132  # JFK Airport (Queens)
-DEFAULT_DROPOFF_ZONE_ID = 236  # Upper East Side North (Manhattan)
 
 
 def render() -> None:
@@ -27,18 +37,21 @@ def render() -> None:
 		col1, col2 = st.columns(2)
 		with col1:
 			pu_label = st.selectbox("Pickup zone", labels, index=pickup_default_index)
-			pickup_dt = st.text_input("Pickup datetime (ISO)", "2022-05-20T14:30:00")
+			pickup_dt = st.text_input("Pickup datetime (ISO)", DEFAULT_PICKUP_DATETIME)
 			passengers = st.number_input(
-				"Passengers", min_value=PASSENGER_MIN, max_value=PASSENGER_MAX, value=1
+				"Passengers",
+				min_value=PASSENGER_MIN,
+				max_value=PASSENGER_MAX,
+				value=DEFAULT_PASSENGER_COUNT,
 			)
 		with col2:
 			do_label = st.selectbox("Dropoff zone", labels, index=dropoff_default_index)
-			ratecode = st.selectbox("Rate code", RATECODES, index=0)
+			ratecode = st.selectbox("Rate code", RATECODES, index=RATECODES.index(DEFAULT_RATECODE))
 			distance = st.number_input(
 				"Trip distance (miles)",
 				min_value=TRIP_DISTANCE_MIN,
 				max_value=TRIP_DISTANCE_MAX,
-				value=3.0,
+				value=DEFAULT_TRIP_DISTANCE_MILES,
 			)
 		submitted = st.form_submit_button("Predict")
 
@@ -67,7 +80,7 @@ def render() -> None:
 
 
 def _render_result(status_code: int, body: dict, payload: dict) -> None:
-	if status_code == 200:
+	if status_code == HTTP_STATUS_OK:
 		col1, col2 = st.columns(2)
 		col1.metric("Predicted fare", f"${body['predicted_fare']:.2f}")
 		col2.metric("Predicted duration", f"{body['predicted_duration_minutes']:.1f} min")
@@ -80,11 +93,11 @@ def _render_result(status_code: int, body: dict, payload: dict) -> None:
 				payload["passenger_count"],
 				payload["RatecodeID"],
 			)
-	elif status_code == 0:
+	elif status_code == HTTP_STATUS_UNREACHABLE:
 		st.error(f"Could not connect to API. Is the server running? Details: {body.get('detail')}")
-	elif status_code == 503:
+	elif status_code == HTTP_STATUS_UNAVAILABLE:
 		st.error(f"Model is not loaded yet in API. Details: {body.get('detail')}")
-	elif status_code == 422:
+	elif status_code == HTTP_STATUS_UNPROCESSABLE:
 		st.error(f"Invalid input:\n\n{_format_validation_errors(body.get('detail'))}")
 	else:
 		st.error(f"Unexpected error ({status_code}): {body.get('detail')}")
