@@ -16,7 +16,7 @@ import streamlit as st
 
 import api_client
 from settings import settings
-from zones import load_zones
+from zones import infer_ratecode, load_zones
 
 EARTH_RADIUS_MILES = 3958.8
 
@@ -37,9 +37,7 @@ def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
 
 
 @st.cache_data(show_spinner=False)
-def _predict_grid(
-	pu_location_id: int, pickup_dt: str, passengers: int, ratecode: int
-) -> pd.DataFrame:
+def _predict_grid(pu_location_id: int, pickup_dt: str, passengers: int) -> pd.DataFrame:
 	zones = load_zones().dropna(subset=["longitude", "latitude"])
 	pu_rows = zones[zones.LocationID == pu_location_id]
 	if pu_rows.empty:
@@ -52,24 +50,27 @@ def _predict_grid(
 	for i, (_, do_row) in enumerate(zones.iterrows()):
 		distance = _haversine_miles(pu_row.latitude, pu_row.longitude, do_row.latitude, do_row.longitude)
 		distance = min(max(distance, 0.1), 150.0)
+		# El rate code se infiere por cada par (pickup, dropoff) — no es un valor
+		# fijo para las 263 filas, igual que en el formulario principal.
+		do_location_id = int(do_row.LocationID)
 		payload = {
 			"PULocationID": int(pu_location_id),
-			"DOLocationID": int(do_row.LocationID),
+			"DOLocationID": do_location_id,
 			"tpep_pickup_datetime": pickup_dt,
 			"passenger_count": passengers,
-			"RatecodeID": ratecode,
+			"RatecodeID": infer_ratecode(pu_location_id, do_location_id),
 			"trip_distance": round(distance, 2),
 		}
 		status_code, body = api_client.predict(payload)
 		if status_code == 200:
-			rows.append({"LocationID": int(do_row.LocationID), "predicted_fare": body["predicted_fare"]})
+			rows.append({"LocationID": do_location_id, "predicted_fare": body["predicted_fare"]})
 		progress.progress((i + 1) / total, text=f"Calculando tarifas por zona... ({i + 1}/{total})")
 	progress.empty()
 	return pd.DataFrame(rows)
 
 
-def render(pu_location_id: int, pickup_dt: str, passengers: int, ratecode: int) -> None:
-	grid = _predict_grid(pu_location_id, pickup_dt, passengers, ratecode)
+def render(pu_location_id: int, pickup_dt: str, passengers: int) -> None:
+	grid = _predict_grid(pu_location_id, pickup_dt, passengers)
 
 	if grid.empty:
 		st.info("No se pudieron calcular tarifas para el choropleth (zona de pickup sin coordenadas).")

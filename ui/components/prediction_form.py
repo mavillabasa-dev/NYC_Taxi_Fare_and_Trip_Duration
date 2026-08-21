@@ -4,10 +4,9 @@ import streamlit as st
 
 import api_client
 from components import choropleth, trip_map
-from zones import load_zones
+from zones import RATECODE_LABELS, infer_ratecode, load_zones
 
 PASSENGER_MIN, PASSENGER_MAX = 1, 9
-RATECODES = [1, 2, 3, 4, 5, 6]
 TRIP_DISTANCE_MIN, TRIP_DISTANCE_MAX = 0.1, 150.0
 
 DEFAULT_PICKUP_ZONE_ID = 132  # JFK Airport (Queens)
@@ -23,17 +22,34 @@ def render() -> None:
 	pickup_default_index = labels.index(id_to_label[DEFAULT_PICKUP_ZONE_ID])
 	dropoff_default_index = labels.index(id_to_label[DEFAULT_DROPOFF_ZONE_ID])
 
+	# Pickup/Dropoff (y el Rate code inferido a partir de ellos) quedan AFUERA del
+	# st.form: los widgets dentro de un form no disparan rerun hasta el submit, y
+	# necesitamos que el campo "Rate code (auto)" se actualice en vivo apenas se
+	# cambia de zona, no recién al predecir.
+	col1, col2, col3 = st.columns(3)
+	with col1:
+		pu_label = st.selectbox("Pickup zone", labels, index=pickup_default_index)
+	with col2:
+		do_label = st.selectbox("Dropoff zone", labels, index=dropoff_default_index)
+
+	pu_id = int(label_to_id[pu_label])
+	do_id = int(label_to_id[do_label])
+	inferred_ratecode = infer_ratecode(pu_id, do_id)
+	inferred_ratecode_label = f"{inferred_ratecode} - {RATECODE_LABELS[inferred_ratecode]}"
+
+	with col3:
+		st.selectbox(
+			"Rate code (auto)", options=[inferred_ratecode_label], index=0, disabled=True
+		)
+
 	with st.form("prediction_form"):
 		col1, col2 = st.columns(2)
 		with col1:
-			pu_label = st.selectbox("Pickup zone", labels, index=pickup_default_index)
 			pickup_dt = st.text_input("Pickup datetime (ISO)", "2022-05-20T14:30:00")
 			passengers = st.number_input(
 				"Passengers", min_value=PASSENGER_MIN, max_value=PASSENGER_MAX, value=1
 			)
 		with col2:
-			do_label = st.selectbox("Dropoff zone", labels, index=dropoff_default_index)
-			ratecode = st.selectbox("Rate code", RATECODES, index=0)
 			distance = st.number_input(
 				"Trip distance (miles)",
 				min_value=TRIP_DISTANCE_MIN,
@@ -44,11 +60,11 @@ def render() -> None:
 
 	if submitted:
 		payload = {
-			"PULocationID": int(label_to_id[pu_label]),
-			"DOLocationID": int(label_to_id[do_label]),
+			"PULocationID": pu_id,
+			"DOLocationID": do_id,
 			"tpep_pickup_datetime": pickup_dt,
 			"passenger_count": passengers,
-			"RatecodeID": ratecode,
+			"RatecodeID": inferred_ratecode,
 			"trip_distance": distance,
 		}
 		status_code, body = api_client.predict(payload)
@@ -78,7 +94,6 @@ def _render_result(status_code: int, body: dict, payload: dict) -> None:
 				payload["PULocationID"],
 				payload["tpep_pickup_datetime"],
 				payload["passenger_count"],
-				payload["RatecodeID"],
 			)
 	elif status_code == 0:
 		st.error(f"No se pudo contactar la API. ¿Está corriendo? Detalle: {body.get('detail')}")
