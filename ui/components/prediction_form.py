@@ -1,13 +1,19 @@
 """Formulario de predicción: recolecta los datos del viaje y llama a la API."""
 
+import pandas as pd
 import streamlit as st
 
 import api_client
 from components import choropleth, trip_map
-from zones import RATECODE_LABELS, infer_ratecode, load_zones
+from zones import (
+	DEFAULT_TRIP_DISTANCE_MILES,
+	RATECODE_LABELS,
+	estimate_trip_distance,
+	infer_ratecode,
+	load_zones,
+)
 
 PASSENGER_MIN, PASSENGER_MAX = 1, 9
-TRIP_DISTANCE_MIN, TRIP_DISTANCE_MAX = 0.1, 150.0
 
 DEFAULT_PICKUP_ZONE_ID = 132  # JFK Airport (Queens)
 DEFAULT_DROPOFF_ZONE_ID = 236  # Upper East Side North (Manhattan)
@@ -22,11 +28,11 @@ def render() -> None:
 	pickup_default_index = labels.index(id_to_label[DEFAULT_PICKUP_ZONE_ID])
 	dropoff_default_index = labels.index(id_to_label[DEFAULT_DROPOFF_ZONE_ID])
 
-	# Pickup/Dropoff (y el Rate code inferido a partir de ellos) quedan AFUERA del
-	# st.form: los widgets dentro de un form no disparan rerun hasta el submit, y
-	# necesitamos que el campo "Rate code (auto)" se actualice en vivo apenas se
+	# Pickup/Dropoff (y Rate code / Trip distance, inferidos a partir de ellos) quedan
+	# AFUERA del st.form: los widgets dentro de un form no disparan rerun hasta el
+	# submit, y necesitamos que estos campos "auto" se actualicen en vivo apenas se
 	# cambia de zona, no recién al predecir.
-	col1, col2, col3 = st.columns(3)
+	col1, col2, col3, col4 = st.columns(4)
 	with col1:
 		pu_label = st.selectbox("Pickup zone", labels, index=pickup_default_index)
 	with col2:
@@ -36,25 +42,35 @@ def render() -> None:
 	do_id = int(label_to_id[do_label])
 	inferred_ratecode = infer_ratecode(pu_id, do_id)
 	inferred_ratecode_label = f"{inferred_ratecode} - {RATECODE_LABELS[inferred_ratecode]}"
+	estimated_distance = estimate_trip_distance(pu_id, do_id)
 
 	with col3:
 		st.selectbox(
 			"Rate code (auto)", options=[inferred_ratecode_label], index=0, disabled=True
+		)
+	with col4:
+		st.number_input(
+			"Trip distance (auto, miles)", value=estimated_distance, disabled=True
+		)
+
+	pu_row = zones[zones.LocationID == pu_id].iloc[0]
+	do_row = zones[zones.LocationID == do_id].iloc[0]
+	if (
+		estimated_distance == DEFAULT_TRIP_DISTANCE_MILES
+		and (pd.isna(pu_row.longitude) or pd.isna(do_row.longitude))
+	):
+		st.caption(
+			"⚠️ Una de las zonas elegidas no tiene coordenadas conocidas — se usó un "
+			f"valor de respaldo ({DEFAULT_TRIP_DISTANCE_MILES} mi), no una estimación real."
 		)
 
 	with st.form("prediction_form"):
 		col1, col2 = st.columns(2)
 		with col1:
 			pickup_dt = st.text_input("Pickup datetime (ISO)", "2022-05-20T14:30:00")
+		with col2:
 			passengers = st.number_input(
 				"Passengers", min_value=PASSENGER_MIN, max_value=PASSENGER_MAX, value=1
-			)
-		with col2:
-			distance = st.number_input(
-				"Trip distance (miles)",
-				min_value=TRIP_DISTANCE_MIN,
-				max_value=TRIP_DISTANCE_MAX,
-				value=3.0,
 			)
 		submitted = st.form_submit_button("Predict")
 
@@ -65,7 +81,7 @@ def render() -> None:
 			"tpep_pickup_datetime": pickup_dt,
 			"passenger_count": passengers,
 			"RatecodeID": inferred_ratecode,
-			"trip_distance": distance,
+			"trip_distance": estimated_distance,
 		}
 		status_code, body = api_client.predict(payload)
 		# Se guarda en session_state porque el resultado tiene que sobrevivir a
