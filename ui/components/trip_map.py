@@ -34,6 +34,10 @@ def render(pu_location_id: int, do_location_id: int) -> None:
 			text=["Pickup", "Dropoff"],
 			textposition="top center",
 			marker=dict(size=14, color=["#2ecc71", "#e74c3c"]),
+			# Sin esto, Plotly muestra lat/lon crudos en el hover por default.
+			# hoverinfo="text" le dice que use hovertext en vez de eso.
+			hovertext=[f"Pickup: {pu_row.label}", f"Dropoff: {do_row.label}"],
+			hoverinfo="text",
 		)
 	)
 	fig.update_layout(
