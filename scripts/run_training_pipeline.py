@@ -11,8 +11,15 @@ This script orchestrates the full offline training pipeline from raw data acquis
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
+from pathlib import Path
+
+# Ensure repository root is on sys.path
+REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,21 +36,22 @@ def run_pipeline() -> None:
 
     # Stage 1: Ingestion & Spatial Centroids (T-116)
     logger.info("[1/5] Running Data Ingestion & Centroid Extraction...")
-    from src.data_utils import main as run_ingestion
+    from src.data_utils import ingest_all_data
 
-    run_ingestion()
+    ingest_all_data()
 
     # Stage 2: Data Cleaning & Temporal Splitting (T-104)
     logger.info("[2/5] Running Data Cleaning & Preprocessing...")
-    from src.preprocessing import run_preprocessing_pipeline
+    from src.preprocessing import clean_and_preprocess_dataset
 
-    run_preprocessing_pipeline()
+    clean_and_preprocess_dataset()
 
     # Stage 3: Feature Engineering Pipeline (T-105)
     logger.info("[3/5] Fitting Feature Engineering Pipeline...")
-    from src.features import run_feature_engineering_pipeline
+    from src.config import TRAIN_CLEANED_PATH
+    from src.features import build_and_save_feature_pipeline
 
-    run_feature_engineering_pipeline()
+    build_and_save_feature_pipeline(TRAIN_CLEANED_PATH)
 
     # Stage 4: Model Selection, Benchmarking & Production Export (T-109)
     logger.info("[4/5] Training Winning Models & Exporting Production Artifact...")
@@ -53,17 +61,16 @@ def run_pipeline() -> None:
 
     # Stage 5: Artifact Isolation Acceptance Test (T-109 / T-114)
     logger.info("[5/5] Running Artifact Isolation Acceptance Verification...")
-    from tests.verify_isolation import verify_artifact_isolation
-    import os
     from src.config import MODEL_PATH
+    from src.model_selection import verify_model_isolation
 
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    api_dir = os.path.join(repo_root, "api")
-    verify_artifact_isolation(MODEL_PATH, api_dir)
+    isolation_passed = verify_model_isolation(MODEL_PATH)
+    if not isolation_passed:
+        raise RuntimeError("Artifact isolation acceptance verification failed!")
 
     total_time = time.time() - t_start
     logger.info("=================================================================")
-    logger.info(f"  PIPELINE COMPLETE SUCCESSFULLY IN {total_time:.2f}s")
+    logger.info(f"  PIPELINE COMPLETED SUCCESSFULLY IN {total_time:.2f}s")
     logger.info("=================================================================")
 
 

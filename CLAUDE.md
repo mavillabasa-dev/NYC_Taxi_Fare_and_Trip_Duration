@@ -64,4 +64,4 @@ These are properties of the data, not preferences. Getting them wrong silently p
 
 Ticket IDs are stable and not contiguous in execution order: T-116 (dataset ingestion) runs early, before T-103; T-117 and T-118 are optional and off the critical path; T-119 (peer review) runs just before T-115. The README's directory is grouped by phase for that reason.
 
-Notebooks are numbered to match that flow (`01_EDA` → `02_preprocessing` → `03_model_experiments`). They are exploration surfaces; production logic belongs in `src/`.
+Notebooks are numbered to match that flow (`01_EDA` → `02_preprocessing` → `03_feature_engineering` → `04_model_experiments`). They are exploration surfaces; production logic belongs in `src/`.

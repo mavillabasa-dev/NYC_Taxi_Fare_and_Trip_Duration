@@ -243,7 +243,7 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-105 · `DATA` · Feature engineering pipeline
 
-**Depends on:** T-104 — **Artifact:** `src/features.py`, `notebooks/02b_feature_engineering.ipynb`, `models/feature_pipeline.pkl`
+**Depends on:** T-104 — **Artifact:** `src/features.py`, `notebooks/03_feature_engineering.ipynb`, `models/feature_pipeline.pkl`
 
 - [x] Temporal features: hour, day-of-week, month-day, weekend flag, rush-hour flag,
       US holiday flag; cyclical encoding for hour and weekday.
@@ -259,7 +259,7 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-106 · `ML` · Baseline regressors (linear and trees)
 
-**Depends on:** T-105 — **Artifact:** `src/train.py`, `notebooks/03_model_experiments.ipynb`, `models/dt_models.pkl`, `models/dummy_models.pkl`
+**Depends on:** T-105 — **Artifact:** `src/train.py`, `notebooks/04_model_experiments.ipynb`, `models/dt_models.pkl`, `models/dummy_models.pkl`
 
 - [x] Trivial baseline established first: predict the training mean for each target.
       Every later model is reported as improvement over this.
@@ -292,7 +292,7 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 ### T-109 · `EVAL` · Model selection, benchmarking and evaluation
 
-**Depends on:** T-106, T-107, T-108 — **Artifact:** `models/model.pkl`, `notebooks/03_model_experiments.ipynb`, `docs/T-109-model-selection.md`
+**Depends on:** T-106, T-107, T-108 — **Artifact:** `models/model.pkl`, `notebooks/04_model_experiments.ipynb`, `docs/T-109-model-selection.md`
 
 - [x] Single comparison table: every model × both targets × {MAE, RMSE, MAPE, R²,
       train time, inference time}.
