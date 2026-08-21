@@ -19,8 +19,34 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-
+# Geodetic & Spatial Constants
 EARTH_RADIUS_MILES = 3958.8
+MILES_PER_DEGREE_LATITUDE = 69.0
+MAX_HAVERSINE_RATIO = 10.0
+EPSILON_DISTANCE = 0.001
+
+# Airport Zone & Ratecode IDs
+JFK_AIRPORT_ZONE_ID = 132
+NEWARK_AIRPORT_ZONE_ID = 1
+JFK_RATECODE_ID = 2
+NEWARK_RATECODE_ID = 3
+
+# Temporal & Rush Hour Constants
+AM_RUSH_START_HOUR = 7
+AM_RUSH_END_HOUR = 9
+PM_RUSH_START_HOUR = 16
+PM_RUSH_END_HOUR = 19
+WEEKEND_START_DAY = 5
+MEMORIAL_DAY_MONTH = 5
+MEMORIAL_DAY_DAY = 30
+HOURS_PER_DAY = 24.0
+DAYS_PER_WEEK = 7.0
+
+# Target Bounds & Defaults
+DEFAULT_GLOBAL_FARE_MEAN = 15.15
+DEFAULT_VENDOR_ID = 2.0
+MIN_PREDICTED_FARE = 2.50
+MIN_PREDICTED_DURATION = 0.5
 
 
 def _haversine_np(
@@ -44,8 +70,8 @@ def _manhattan_np(
 ) -> np.ndarray:
     """Calculates L1 Manhattan distance in miles between coordinate arrays."""
     lat_mid = np.radians((lat1 + lat2) / 2.0)
-    dlat_miles = np.abs(lat2 - lat1) * 69.0
-    dlon_miles = np.abs(lon2 - lon1) * 69.0 * np.cos(lat_mid)
+    dlat_miles = np.abs(lat2 - lat1) * MILES_PER_DEGREE_LATITUDE
+    dlon_miles = np.abs(lon2 - lon1) * MILES_PER_DEGREE_LATITUDE * np.cos(lat_mid)
     return dlat_miles + dlon_miles
 
 
@@ -64,7 +90,7 @@ class SelfContainedTaxiModel:
         duration_model: Any,
         centroid_lookup: Dict[int, Tuple[float, float]],
         target_encodings: Dict[str, Dict[Any, float]],
-        global_fare_mean: float = 15.15,
+        global_fare_mean: float = DEFAULT_GLOBAL_FARE_MEAN,
         feature_names: Optional[List[str]] = None,
         version: str = "1.0.0-lightgbm",
     ) -> None:
@@ -89,7 +115,7 @@ class SelfContainedTaxiModel:
         vendor_id = (
             df["VendorID"].values
             if "VendorID" in df.columns
-            else np.full(len(df), 2, dtype=int)
+            else np.full(len(df), int(DEFAULT_VENDOR_ID), dtype=int)
         )
 
         df_out["PULocationID"] = pu_id
@@ -109,18 +135,20 @@ class SelfContainedTaxiModel:
         df_out["pickup_dayofweek"] = dayofweek
         df_out["pickup_day"] = day
 
-        df_out["sin_hour"] = np.sin(2.0 * np.pi * hour / 24.0)
-        df_out["cos_hour"] = np.cos(2.0 * np.pi * hour / 24.0)
-        df_out["sin_dayofweek"] = np.sin(2.0 * np.pi * dayofweek / 7.0)
-        df_out["cos_dayofweek"] = np.cos(2.0 * np.pi * dayofweek / 7.0)
+        df_out["sin_hour"] = np.sin(2.0 * np.pi * hour / HOURS_PER_DAY)
+        df_out["cos_hour"] = np.cos(2.0 * np.pi * hour / HOURS_PER_DAY)
+        df_out["sin_dayofweek"] = np.sin(2.0 * np.pi * dayofweek / DAYS_PER_WEEK)
+        df_out["cos_dayofweek"] = np.cos(2.0 * np.pi * dayofweek / DAYS_PER_WEEK)
 
-        df_out["is_weekend"] = (dayofweek >= 5).astype(int)
+        df_out["is_weekend"] = (dayofweek >= WEEKEND_START_DAY).astype(int)
 
-        is_weekday = dayofweek < 5
-        is_am_rush = (hour >= 7) & (hour <= 9)
-        is_pm_rush = (hour >= 16) & (hour <= 19)
+        is_weekday = dayofweek < WEEKEND_START_DAY
+        is_am_rush = (hour >= AM_RUSH_START_HOUR) & (hour <= AM_RUSH_END_HOUR)
+        is_pm_rush = (hour >= PM_RUSH_START_HOUR) & (hour <= PM_RUSH_END_HOUR)
         df_out["is_rush_hour"] = (is_weekday & (is_am_rush | is_pm_rush)).astype(int)
-        df_out["is_holiday"] = ((dt.dt.month == 5) & (dt.dt.day == 30)).astype(int)
+        df_out["is_holiday"] = (
+            (dt.dt.month == MEMORIAL_DAY_MONTH) & (dt.dt.day == MEMORIAL_DAY_DAY)
+        ).astype(int)
 
         # 3. Spatial Zone Centroids
         pu_lat = np.array(
@@ -148,15 +176,19 @@ class SelfContainedTaxiModel:
 
         df_out["haversine_distance"] = haversine
         df_out["manhattan_distance"] = manhattan
-        df_out["haversine_ratio"] = np.clip(haversine / (trip_dist + 0.001), 0.0, 10.0)
+        df_out["haversine_ratio"] = np.clip(
+            haversine / (trip_dist + EPSILON_DISTANCE), 0.0, MAX_HAVERSINE_RATIO
+        )
         df_out["is_same_zone"] = (pu_id == do_id).astype(int)
 
-        is_jfk_rate = ratecode == 2
-        is_jfk_zone = (pu_id == 132) | (do_id == 132)
+        is_jfk_rate = ratecode == JFK_RATECODE_ID
+        is_jfk_zone = (pu_id == JFK_AIRPORT_ZONE_ID) | (do_id == JFK_AIRPORT_ZONE_ID)
         df_out["is_jfk"] = (is_jfk_rate | is_jfk_zone).astype(int)
 
-        is_newark_rate = ratecode == 3
-        is_newark_zone = (pu_id == 1) | (do_id == 1)
+        is_newark_rate = ratecode == NEWARK_RATECODE_ID
+        is_newark_zone = (pu_id == NEWARK_AIRPORT_ZONE_ID) | (
+            do_id == NEWARK_AIRPORT_ZONE_ID
+        )
         df_out["is_newark"] = (is_newark_rate | is_newark_zone).astype(int)
 
         # 4. Smoothed Target Encodings
@@ -199,19 +231,23 @@ class SelfContainedTaxiModel:
         ratecode = int(payload["RatecodeID"])
         passengers = float(payload.get("passenger_count", 1))
         trip_dist = float(payload.get("trip_distance", 1.0))
-        vendor_id = float(payload.get("VendorID", 2))
+        vendor_id = float(payload.get("VendorID", DEFAULT_VENDOR_ID))
 
-        sin_hour = math.sin(2.0 * math.pi * hour / 24.0)
-        cos_hour = math.cos(2.0 * math.pi * hour / 24.0)
-        sin_dow = math.sin(2.0 * math.pi * dayofweek / 7.0)
-        cos_dow = math.cos(2.0 * math.pi * dayofweek / 7.0)
+        sin_hour = math.sin(2.0 * math.pi * hour / HOURS_PER_DAY)
+        cos_hour = math.cos(2.0 * math.pi * hour / HOURS_PER_DAY)
+        sin_dow = math.sin(2.0 * math.pi * dayofweek / DAYS_PER_WEEK)
+        cos_dow = math.cos(2.0 * math.pi * dayofweek / DAYS_PER_WEEK)
 
-        is_weekend = 1.0 if dayofweek >= 5 else 0.0
-        is_weekday = dayofweek < 5
-        is_am_rush = 1.0 if (7 <= hour <= 9) else 0.0
-        is_pm_rush = 1.0 if (16 <= hour <= 19) else 0.0
+        is_weekend = 1.0 if dayofweek >= WEEKEND_START_DAY else 0.0
+        is_weekday = dayofweek < WEEKEND_START_DAY
+        is_am_rush = 1.0 if (AM_RUSH_START_HOUR <= hour <= AM_RUSH_END_HOUR) else 0.0
+        is_pm_rush = 1.0 if (PM_RUSH_START_HOUR <= hour <= PM_RUSH_END_HOUR) else 0.0
         is_rush_hour = 1.0 if (is_weekday and (is_am_rush or is_pm_rush)) else 0.0
-        is_holiday = 1.0 if (dt.month == 5 and dt.day == 30) else 0.0
+        is_holiday = (
+            1.0
+            if (dt.month == MEMORIAL_DAY_MONTH and dt.day == MEMORIAL_DAY_DAY)
+            else 0.0
+        )
 
         pu_coords = self.centroid_lookup.get(pu_id, (0.0, 0.0))
         do_coords = self.centroid_lookup.get(do_id, (0.0, 0.0))
@@ -235,14 +271,32 @@ class SelfContainedTaxiModel:
 
         # Fast Manhattan scalar
         lat_mid = math.radians((pu_lat + do_lat) / 2.0)
-        dlat_miles = abs(do_lat - pu_lat) * 69.0
-        dlon_miles = abs(do_lon - pu_lon) * 69.0 * math.cos(lat_mid)
+        dlat_miles = abs(do_lat - pu_lat) * MILES_PER_DEGREE_LATITUDE
+        dlon_miles = abs(do_lon - pu_lon) * MILES_PER_DEGREE_LATITUDE * math.cos(lat_mid)
         manhattan = dlat_miles + dlon_miles
 
-        haversine_ratio = min(max(haversine / (trip_dist + 0.001), 0.0), 10.0)
+        haversine_ratio = min(
+            max(haversine / (trip_dist + EPSILON_DISTANCE), 0.0), MAX_HAVERSINE_RATIO
+        )
         is_same_zone = 1.0 if pu_id == do_id else 0.0
-        is_jfk = 1.0 if (ratecode == 2 or pu_id == 132 or do_id == 132) else 0.0
-        is_newark = 1.0 if (ratecode == 3 or pu_id == 1 or do_id == 1) else 0.0
+        is_jfk = (
+            1.0
+            if (
+                ratecode == JFK_RATECODE_ID
+                or pu_id == JFK_AIRPORT_ZONE_ID
+                or do_id == JFK_AIRPORT_ZONE_ID
+            )
+            else 0.0
+        )
+        is_newark = (
+            1.0
+            if (
+                ratecode == NEWARK_RATECODE_ID
+                or pu_id == NEWARK_AIRPORT_ZONE_ID
+                or do_id == NEWARK_AIRPORT_ZONE_ID
+            )
+            else 0.0
+        )
 
         pu_te = float(
             self.target_encodings.get("PULocationID", {}).get(
@@ -299,12 +353,12 @@ class SelfContainedTaxiModel:
         pred_fare = float(fare_booster.predict(feat_arr)[0])
         pred_dur = float(dur_booster.predict(feat_arr)[0])
 
-        return max(pred_fare, 2.50), max(pred_dur, 0.5)
+        return max(pred_fare, MIN_PREDICTED_FARE), max(pred_dur, MIN_PREDICTED_DURATION)
 
     def warm_up(self) -> None:
         """Warms up booster threads and inference buffers during application startup."""
         dummy_payload = {
-            "PULocationID": 132,
+            "PULocationID": JFK_AIRPORT_ZONE_ID,
             "DOLocationID": 236,
             "tpep_pickup_datetime": "2022-05-20T14:30:00",
             "passenger_count": 2,
@@ -320,7 +374,7 @@ class SelfContainedTaxiModel:
         pred_duration = self.duration_model.predict(X_feat)
 
         # Ensure predictions are non-negative
-        pred_fare = np.clip(pred_fare, a_min=2.50, a_max=None)
-        pred_duration = np.clip(pred_duration, a_min=0.5, a_max=None)
+        pred_fare = np.clip(pred_fare, a_min=MIN_PREDICTED_FARE, a_max=None)
+        pred_duration = np.clip(pred_duration, a_min=MIN_PREDICTED_DURATION, a_max=None)
 
         return np.column_stack((pred_fare, pred_duration))

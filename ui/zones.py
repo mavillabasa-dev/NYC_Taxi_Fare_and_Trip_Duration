@@ -1,4 +1,4 @@
-"""Carga y cachea el catálogo de zonas de NYC (nombre, borough, coordenadas)."""
+"""Loads and caches the NYC taxi zones catalog (zone name, borough, coordinates)."""
 
 import math
 from pathlib import Path
@@ -23,8 +23,8 @@ RATECODE_LABELS = {
 EARTH_RADIUS_MILES = 3958.8
 MIN_TRIP_DISTANCE_MILES = 0.1
 MAX_TRIP_DISTANCE_MILES = 150.0
-# Respaldo cuando una zona no tiene coordenadas conocidas (LocationID 264/265) — mismo
-# default que tenía el campo manual antes de auto-completarse.
+# Fallback when a zone lacks known coordinates (LocationID 264/265) — same
+# default as the manual input field before auto-fill was introduced.
 DEFAULT_TRIP_DISTANCE_MILES = 3.0
 
 
@@ -55,9 +55,9 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
 
 
 def estimate_trip_distance(pu_location_id: int, do_location_id: int) -> float:
-	"""Aproxima trip_distance con la distancia haversine (línea recta) entre pickup y
-	dropoff. Es una subestimación sistemática frente a una ruta real en auto — sirve
-	como mejora incremental sobre un input manual, no reemplaza una API de ruteo."""
+	"""Approximates trip_distance using Haversine (straight-line) distance between pickup and
+	dropoff. Systematically underestimates actual road routing — serves as an incremental
+	improvement over manual guesswork without replacing a full routing API."""
 	zones = load_zones()
 	pu_rows = zones[zones.LocationID == pu_location_id]
 	do_rows = zones[zones.LocationID == do_location_id]

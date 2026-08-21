@@ -1,1 +1,1 @@
-# test_integration.py — Tests de integración del proyecto
+# test_integration.py — Project integration tests

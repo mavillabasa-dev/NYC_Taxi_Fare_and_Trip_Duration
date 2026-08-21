@@ -1,4 +1,4 @@
-"""Punto de entrada de la aplicación Streamlit (dashboard de T-111)."""
+"""Streamlit application entry point (T-111 dashboard)."""
 
 import streamlit as st
 
@@ -11,11 +11,11 @@ st.title("NYC Taxi Fare & Trip Duration Predictor")
 health = api_client.get_health()
 
 if health.get("status") == "unreachable":
-	st.error(f"No se pudo contactar la API: {health.get('detail')}")
+	st.error(f"Could not connect to prediction service: {health.get('detail')}")
 elif health.get("model_loaded"):
-	st.success(f"API conectada — modelo cargado (versión {health.get('model_version')})")
+	st.success("Prediction service is online and ready")
 else:
-	st.warning(f"API conectada, pero el modelo no está cargado: {health.get('detail')}")
+	st.warning(f"Prediction service is online, but model is not loaded: {health.get('detail')}")
 
 st.divider()
 prediction_form.render()

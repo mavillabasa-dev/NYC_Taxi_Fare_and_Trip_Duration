@@ -364,7 +364,7 @@ def _parse_args() -> argparse.Namespace:
         required=True,
         help="T-105 sklearn feature pipeline (models/feature_pipeline.pkl)",
     )
-    parser.add_argument("--output-dir", default="models/t107")
+    parser.add_argument("--output-dir", default="models/gbm")
     parser.add_argument("--n-iter", type=int, default=12)
     parser.add_argument("--cv-splits", type=int, default=3)
     parser.add_argument("--n-jobs", type=int, default=-1)

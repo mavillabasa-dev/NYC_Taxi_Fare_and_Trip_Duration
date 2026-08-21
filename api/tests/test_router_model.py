@@ -1,4 +1,4 @@
-"""Pruebas del contrato HTTP y del artefacto provisional de T-110."""
+"""Tests for HTTP contract and model artifact."""
 
 import pickle
 from types import SimpleNamespace

@@ -1,22 +1,29 @@
-"""Formulario de predicción: recolecta los datos del viaje y llama a la API."""
+"""Prediction form: collects trip data and calls the API."""
 
 import pandas as pd
 import streamlit as st
 
 import api_client
 from components import choropleth, trip_map
-from zones import (
+from settings import (
+	DEFAULT_DROPOFF_ZONE_ID,
+	DEFAULT_PASSENGER_COUNT,
+	DEFAULT_PICKUP_DATETIME,
+	DEFAULT_PICKUP_ZONE_ID,
 	DEFAULT_TRIP_DISTANCE_MILES,
+	HTTP_STATUS_OK,
+	HTTP_STATUS_UNAVAILABLE,
+	HTTP_STATUS_UNPROCESSABLE,
+	HTTP_STATUS_UNREACHABLE,
+	PASSENGER_MAX,
+	PASSENGER_MIN,
+)
+from zones import (
 	RATECODE_LABELS,
 	estimate_trip_distance,
 	infer_ratecode,
 	load_zones,
 )
-
-PASSENGER_MIN, PASSENGER_MAX = 1, 9
-
-DEFAULT_PICKUP_ZONE_ID = 132  # JFK Airport (Queens)
-DEFAULT_DROPOFF_ZONE_ID = 236  # Upper East Side North (Manhattan)
 
 
 def render() -> None:
@@ -28,10 +35,10 @@ def render() -> None:
 	pickup_default_index = labels.index(id_to_label[DEFAULT_PICKUP_ZONE_ID])
 	dropoff_default_index = labels.index(id_to_label[DEFAULT_DROPOFF_ZONE_ID])
 
-	# Pickup/Dropoff (y Rate code / Trip distance, inferidos a partir de ellos) quedan
-	# AFUERA del st.form: los widgets dentro de un form no disparan rerun hasta el
-	# submit, y necesitamos que estos campos "auto" se actualicen en vivo apenas se
-	# cambia de zona, no recién al predecir.
+	# Pickup/Dropoff (and inferred Rate code / Trip distance) remain
+	# OUTSIDE st.form: widgets inside a form do not trigger a rerun until
+	# submit, and these "auto" fields need to update live as soon as a zone
+	# changes, not only upon clicking predict.
 	col1, col2, col3, col4 = st.columns(4)
 	with col1:
 		pu_label = st.selectbox("Pickup zone", labels, index=pickup_default_index)
@@ -60,17 +67,20 @@ def render() -> None:
 		and (pd.isna(pu_row.longitude) or pd.isna(do_row.longitude))
 	):
 		st.caption(
-			"⚠️ Una de las zonas elegidas no tiene coordenadas conocidas — se usó un "
-			f"valor de respaldo ({DEFAULT_TRIP_DISTANCE_MILES} mi), no una estimación real."
+			"⚠️ One of the selected zones lacks known coordinates — a fallback "
+			f"value ({DEFAULT_TRIP_DISTANCE_MILES} mi) was used instead of a real estimate."
 		)
 
 	with st.form("prediction_form"):
 		col1, col2 = st.columns(2)
 		with col1:
-			pickup_dt = st.text_input("Pickup datetime (ISO)", "2022-05-20T14:30:00")
+			pickup_dt = st.text_input("Pickup datetime (ISO)", DEFAULT_PICKUP_DATETIME)
 		with col2:
 			passengers = st.number_input(
-				"Passengers", min_value=PASSENGER_MIN, max_value=PASSENGER_MAX, value=1
+				"Passengers",
+				min_value=PASSENGER_MIN,
+				max_value=PASSENGER_MAX,
+				value=DEFAULT_PASSENGER_COUNT,
 			)
 		submitted = st.form_submit_button("Predict")
 
@@ -84,9 +94,9 @@ def render() -> None:
 			"trip_distance": estimated_distance,
 		}
 		status_code, body = api_client.predict(payload)
-		# Se guarda en session_state porque el resultado tiene que sobrevivir a
-		# reruns disparados por OTROS widgets (ej. el checkbox del choropleth) —
-		# `submitted` solo es True en el rerun exacto del click en "Predict".
+		# Saved in session_state because the result must survive reruns
+		# triggered by OTHER widgets (e.g. the choropleth checkbox) —
+		# `submitted` is only True on the exact rerun of clicking "Predict".
 		st.session_state["last_prediction"] = {
 			"status_code": status_code,
 			"body": body,
@@ -99,26 +109,26 @@ def render() -> None:
 
 
 def _render_result(status_code: int, body: dict, payload: dict) -> None:
-	if status_code == 200:
+	if status_code == HTTP_STATUS_OK:
 		col1, col2 = st.columns(2)
 		col1.metric("Predicted fare", f"${body['predicted_fare']:.2f}")
 		col2.metric("Predicted duration", f"{body['predicted_duration_minutes']:.1f} min")
 		trip_map.render(payload["PULocationID"], payload["DOLocationID"])
 
-		if st.checkbox("Mostrar choropleth de tarifas por zona (llama a la API ~263 veces)"):
+		if st.checkbox("Show predicted fares to all NYC dropoff zones"):
 			choropleth.render(
 				payload["PULocationID"],
 				payload["tpep_pickup_datetime"],
 				payload["passenger_count"],
 			)
-	elif status_code == 0:
-		st.error(f"No se pudo contactar la API. ¿Está corriendo? Detalle: {body.get('detail')}")
-	elif status_code == 503:
-		st.error(f"El modelo todavía no está cargado en la API. Detalle: {body.get('detail')}")
-	elif status_code == 422:
-		st.error(f"Datos inválidos:\n\n{_format_validation_errors(body.get('detail'))}")
+	elif status_code == HTTP_STATUS_UNREACHABLE:
+		st.error(f"Could not connect to API. Is the server running? Details: {body.get('detail')}")
+	elif status_code == HTTP_STATUS_UNAVAILABLE:
+		st.error(f"Model is not loaded yet in API. Details: {body.get('detail')}")
+	elif status_code == HTTP_STATUS_UNPROCESSABLE:
+		st.error(f"Invalid input:\n\n{_format_validation_errors(body.get('detail'))}")
 	else:
-		st.error(f"Error inesperado ({status_code}): {body.get('detail')}")
+		st.error(f"Unexpected error ({status_code}): {body.get('detail')}")
 
 
 def _format_validation_errors(detail) -> str:
