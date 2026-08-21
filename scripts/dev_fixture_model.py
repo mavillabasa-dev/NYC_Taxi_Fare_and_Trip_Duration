@@ -6,7 +6,13 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# Ensure repository root is on sys.path
+REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 import cloudpickle
 import numpy as np
