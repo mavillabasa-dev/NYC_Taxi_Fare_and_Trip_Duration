@@ -1,25 +1,37 @@
-# Offline pipeline dependencies (src/ and notebooks/) — host only.
+# Offline pipeline dependencies (src/, scripts/ and notebooks/) — host only.
 # The container installs api/requirements.txt instead; keep that one minimal.
 # Ticket: T-101
+#
+# VERSIONS ARE PINNED, NOT RANGED.
+# `models/model.pkl` is the only interface between this training environment and
+# the serving container. A model pickled under one numpy/pandas/scikit-learn and
+# unpickled under another may fail to load or silently behave differently, so the
+# four libraries that reach into the artifact MUST be identical here and in
+# api/requirements.txt:
+#
+#     pandas, numpy, scikit-learn, lightgbm
+#
+# Changing any of them requires changing both files in the same commit.
 
 # Data
-pandas>=2.2
-pyarrow>=16.0
-numpy>=1.26
+pandas==2.2.3
+numpy==2.2.1
+pyarrow==25.0.1
 
 # Visualisation
-matplotlib>=3.8
-seaborn>=0.13
+matplotlib==3.11.1
+seaborn==0.13.2
 
 # Notebooks
-jupyter>=1.0
-ipykernel>=6.29
+jupyter==1.1.1
+ipykernel==7.3.0
 
 # Modelling (T-106 baselines / T-109 selection)
-scikit-learn>=1.5
+scikit-learn==1.6.1
+joblib==1.5.3          # model/pipeline serialisation in src/mlp.py, src/model_selection.py
 
 # Geospatial — taxi zone shapefile, zone centroids, choropleth (T-116, T-103, T-111)
-geopandas>=1.0
+geopandas==1.1.4
 
 # Gradient boosting (T-107). Exact versions keep serialized models reproducible.
 lightgbm==4.7.0

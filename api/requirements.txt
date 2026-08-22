@@ -1,7 +1,16 @@
-# Pinned runtime dependencies for serving container
+# Pinned runtime dependencies for serving container.
+# This file is the whole install for the API image: the build context is ./api,
+# so nothing from the repo root is available here. Keep it minimal.
+#
+# The four libraries below the divider also appear in the root requirements.txt.
+# They are what unpickles models/model.pkl, so the versions MUST match exactly in
+# both files; change them together or not at all. requirements-dev.txt installs
+# both files at once and will fail with a version conflict if they drift.
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
+
+# --- shared with requirements.txt (keep in sync) ---
 scikit-learn==1.6.1
 pandas==2.2.3
 numpy==2.2.1
