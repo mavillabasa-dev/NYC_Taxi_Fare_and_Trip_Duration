@@ -304,11 +304,11 @@ def format_markdown_report(results: List[BenchmarkResult]) -> str:
     ]
     for r in results:
         latency_badge = (
-            ("✅ PASSED" if r.sla_latency_passed else "⚠️ EXCEEDED")
+            ("PASSED" if r.sla_latency_passed else "EXCEEDED")
             if r.measures_latency
-            else "— saturated"
+            else "n/a - saturated"
         )
-        throughput_badge = "✅ PASSED" if r.sla_throughput_passed else "⚠️ BELOW"
+        throughput_badge = "PASSED" if r.sla_throughput_passed else "BELOW"
         lines.append(
             f"| **{r.scenario_name}** | {r.concurrency} | {r.total_requests} | {r.cold_start_ms:.1f} ms | "
             f"**{r.latency_p50_ms:.2f} ms** | {r.latency_p90_ms:.2f} ms | {r.latency_p95_ms:.2f} ms | "

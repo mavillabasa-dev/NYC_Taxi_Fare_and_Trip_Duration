@@ -1,4 +1,4 @@
-﻿"""Prediction form: collects trip data and calls the API."""
+"""Prediction form: collects trip data and calls the API."""
 
 import api_client
 import pandas as pd
@@ -61,8 +61,8 @@ def render() -> None:
         pd.isna(pu_row.longitude) or pd.isna(do_row.longitude)
     ):
         st.caption(
-            "âš ï¸ One of the selected zones lacks known coordinates â€” a fallback "
-            f"value ({DEFAULT_TRIP_DISTANCE_MILES} mi) was used instead of a real estimate."
+            "One of these zones has no known coordinates, so the distance above is a "
+            f"fallback of {DEFAULT_TRIP_DISTANCE_MILES} mi rather than a real estimate."
         )
 
     with st.form("prediction_form"):
@@ -89,7 +89,7 @@ def render() -> None:
         }
         status_code, body = api_client.predict(payload)
         # Saved in session_state because the result must survive reruns
-        # triggered by OTHER widgets (e.g. the choropleth checkbox) â€”
+        # triggered by OTHER widgets (e.g. the choropleth checkbox) —
         # `submitted` is only True on the exact rerun of clicking "Predict".
         st.session_state["last_prediction"] = {
             "status_code": status_code,
