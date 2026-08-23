@@ -27,7 +27,9 @@ if str(API_DIR) not in sys.path:
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from sklearn.impute import SimpleImputer  # noqa: E402
 from sklearn.linear_model import LinearRegression  # noqa: E402
+from sklearn.pipeline import Pipeline  # noqa: E402
 
 from app.model.predictor import SelfContainedTaxiModel  # noqa: E402
 
@@ -78,9 +80,27 @@ def _build_stub_model() -> SelfContainedTaxiModel:
         "RatecodeID": {code: 14.0 + code for code in range(1, 7)},
     }
 
+    # Each estimator sits behind a median imputer, and that is not cosmetic. The lookup
+    # above deliberately gives zones 264 and 265 NaN coordinates, mirroring the real
+    # artifact, so the four coordinate features arrive as NaN for any request naming
+    # them - and the API schema accepts 1..265. LightGBM consumes NaN natively;
+    # LinearRegression raises `Input X contains NaN`, and because the exception escapes
+    # both the fast path and the DataFrame fallback, the request ends as an HTTP 500.
+    #
+    # A fixture that 500s on input the production model answers is worse than useless:
+    # it makes local development disagree with production. The imputer keeps the two
+    # aligned.
+    def _estimator() -> Pipeline:
+        return Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("model", LinearRegression()),
+            ]
+        )
+
     model = SelfContainedTaxiModel(
-        fare_model=LinearRegression(),
-        duration_model=LinearRegression(),
+        fare_model=_estimator(),
+        duration_model=_estimator(),
         centroid_lookup=centroid_lookup,
         target_encodings=target_encodings,
         global_fare_mean=15.0,

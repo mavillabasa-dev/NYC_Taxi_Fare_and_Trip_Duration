@@ -11,6 +11,7 @@
 # array it is asked to predict on, which is the feature vector itself.
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -179,3 +180,32 @@ def test_predictions_stay_finite_for_zones_without_centroid():
 
         preds = model.predict(pd.DataFrame([_payload(DOLocationID=zone)]))
         assert np.isfinite(preds).all()
+
+
+@pytest.mark.requires_model
+@pytest.mark.parametrize("zone", [264, 265])
+def test_real_artifact_survives_zones_without_centroid(zone):
+    """The same check, against the estimator that actually ships.
+
+    Every other test in this file drives stub estimators that accept whatever array they
+    are handed, which verifies that the two paths compute the *same* features but says
+    nothing about whether a real estimator can consume them. It cannot, for some: zones
+    264 and 265 produce NaN coordinates, LightGBM ingests those natively but
+    scikit-learn's linear models raise `Input X contains NaN`. That gap reached CI as an
+    HTTP 500 on schema-valid input before this test existed.
+    """
+    import pickle
+
+    artifact = Path(__file__).resolve().parent.parent / "models" / "model.pkl"
+    with artifact.open("rb") as handle:
+        model = pickle.load(handle)["model"]
+
+    payload = _payload(PULocationID=zone)
+
+    fare, duration = model.predict_fast(payload)
+    assert math.isfinite(fare) and math.isfinite(duration)
+    assert 0 < fare < 500, f"zone {zone} produced an implausible fare: {fare}"
+    assert 0 < duration < 360, f"zone {zone} produced an implausible duration: {duration}"
+
+    preds = model.predict(pd.DataFrame([payload]))
+    assert np.isfinite(preds).all()

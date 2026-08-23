@@ -104,7 +104,18 @@ class ModelService:
             [[input_data[name] for name in self.feature_order]],
             columns=self.feature_order,
         )
-        prediction = self.model.predict(features)
+
+        # When the fallback fails too there is nothing left to try, but the failure must
+        # still arrive as a diagnosable message rather than an unhandled traceback: the
+        # router turns RuntimeError into a 500 carrying `detail`, and anything else into
+        # a bare 500 that says nothing. This is reachable with schema-valid input — a
+        # model that cannot consume NaN raises here for the two zones with no centroid.
+        try:
+            prediction = self.model.predict(features)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Model failed to predict for {input_data!r}: {type(exc).__name__}: {exc}"
+            ) from exc
 
         try:
             predicted_fare, predicted_duration = prediction[0]
