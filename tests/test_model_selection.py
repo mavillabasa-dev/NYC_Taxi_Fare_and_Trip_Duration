@@ -1,22 +1,19 @@
 # tests/test_model_selection.py — Unit & Integration tests for T-109 Model Selection & Production Artifact
 import os
 import pickle
-import subprocess
-import sys
-from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from api.app.model.predictor import SelfContainedTaxiModel
-from api.app.model.services import REQUIRED_BUNDLE_KEYS, REQUEST_FEATURES
-from src.config import MODELS_DIR, RANDOM_SEED
-from src.model_selection import (
-    compute_feature_importances,
-    conduct_residual_analysis,
-    verify_model_isolation,
-)
+# Spelled `app.…`, not `api.app.…`. conftest.py puts both the repo root and api/ on
+# sys.path, so the two spellings resolve to *different* module objects: isinstance fails
+# across them, and a pickle written under one does not load under the other. `app.…` is
+# what api/main.py uses and the only package that exists inside the container.
+from app.model.services import REQUIRED_BUNDLE_KEYS, REQUEST_FEATURES
+from src.config import MODELS_DIR
+from src.model_selection import verify_model_isolation
 
 
 @pytest.fixture

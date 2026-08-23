@@ -67,15 +67,21 @@ WINNING_MODEL_FAMILY = "lightgbm"
 # against a file instead of someone's terminal history.
 MODEL_COMPARISON_PATH = os.path.join(MODELS_DIR, "model_comparison.json")
 
-# Non-negotiable regardless of what the search returned. `objective` must match the
-# loss T-107 selected on (scoring="neg_mean_absolute_error"); training on L2 while
-# reporting L1 metrics is exactly the mismatch this constant exists to prevent.
-# `deterministic` keeps results stable across machines with different core counts.
+# Non-negotiable regardless of what the search returned, and deliberately mirroring
+# src/gradient_boosting._make_regressor so the refit reproduces what T-107 measured.
+#
+# `objective` must match the loss T-107 selected on (scoring="neg_mean_absolute_error");
+# training on L2 while reporting L1 metrics is exactly the mismatch this constant exists
+# to prevent. `deterministic` keeps results stable across machines with different core
+# counts. `subsample_freq` is the subtle one: LightGBM ignores `subsample` entirely
+# unless bagging frequency is non-zero, so without this the tuned subsample=0.8 comes
+# back from the search and is silently discarded.
 LGBM_BASE_KWARGS: Dict[str, Any] = {
     "objective": "regression_l1",
     "verbosity": -1,
     "deterministic": True,
     "force_col_wise": True,
+    "subsample_freq": 1,
     "n_jobs": -1,
 }
 

@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This repository is a **scaffold**. Every `.py` file under [src/](src/) and [api/](api/) contains a single Spanish comment describing its intended purpose and nothing else; the three notebooks contain only a title cell. There is no working code, no trained model, and no dataset yet. Expect to write implementations from scratch rather than extend existing ones.
+This repository is **implemented**, not a scaffold. T-101 through T-114 are done: ingestion, cleaning, the feature pipeline, three model families, the FastAPI service, the Streamlit dashboard, Docker, and a test suite. `python -m scripts.run_training_pipeline` runs the whole offline chain end to end in about 75 seconds. Expect to extend existing code, not write it from scratch.
 
-Language split: the placeholder comments in `src/` and `api/` are **Spanish** — match that when editing those files. [README.md](README.md) is **English**. Files are UTF-8 — on Windows/PowerShell pass `-Encoding utf8` explicitly when writing via shell redirection, or accented characters will be mangled.
+`dataset/` and `models/` are still gitignored and locally populated, so a fresh checkout has neither — the suite skips what it cannot run and tells you which command produces it. The one exception is `dataset/taxi_zones.geojson`, which is committed because the dashboard's choropleth needs it.
+
+Language: **English everywhere** — code, comments, docstrings, README. (`docs/` still holds some Spanish documents written before the translation pass; leave them unless you are rewriting one.) Files are UTF-8 — on Windows/PowerShell pass `-Encoding utf8` explicitly when writing via shell redirection, or accented characters will be mangled. `tests/test_docker_config.py` reads `api/requirements.txt` with `read_text()` and no explicit encoding, so keep that file pure ASCII.
 
 ## Commands
 
@@ -33,7 +35,7 @@ Python 3.11 (pinned by [api/Dockerfile](api/Dockerfile) and the notebook kernels
 
 ## Architecture
 
-Two **independent** Python trees that never import each other:
+Two Python trees. `api/` never imports `src/` — that is the constraint the container enforces. The reverse edge exists in exactly one place and is deliberate; see "The one import that crosses" below.
 
 - **[src/](src/)** — offline pipeline, runs on the host only. `config.py` (paths/constants) → `data_utils.py` (loading) → `preprocessing.py` (cleaning/transforms) → `train.py` (fit + evaluate, writes the model artifact).
 - **[api/](api/)** — online serving, runs in the container. `main.py` (FastAPI entrypoint) mounts `app/model/router.py` (endpoints), which calls `app/model/services.py` (load model, predict) using the Pydantic contracts in `app/model/schema.py`. `settings.py` reads environment config.
@@ -41,6 +43,10 @@ Two **independent** Python trees that never import each other:
 The Docker build context is `./api`, so **`src/` is not present at runtime**. The only interface between training and serving is the serialized model file: `docker-compose.yml` bind-mounts `./models` to `/app/models`, and `MODEL_PATH=models/model.pkl` resolves against `WORKDIR /app`. Anything `src/train.py` needs at inference time (encoders, scalers, feature ordering) must therefore be serialized into that artifact or written alongside it in `models/` — it cannot be imported from `src/`.
 
 Inside the image the API package root is flattened: `COPY . .` from `./api` puts `main.py` at `/app/main.py`, which is why the CMD is `uvicorn main:app`. Imports inside `api/` must be written to work with `api/` as the top level (`from app.model.router import ...`), not `from api.app...`. Tests run from the repo root see a different layout — [api/tests/](api/tests/) needs `sys.path`/`conftest.py` handling or root-relative imports to collect there.
+
+**The one import that crosses.** [src/model_selection.py](src/model_selection.py) puts `api/` on `sys.path` and does `from app.model.predictor import SelfContainedTaxiModel`. This looks like a violation and is not: pickle stores the *module path* of a class, so the artifact only unpickles in the container if the class was pickled under the name that exists there — `app.model.predictor`. Importing it as `api.app.model.predictor` produces a bundle that dies with `ModuleNotFoundError: No module named 'api'` behind a `degraded` health check. Serving still never reaches back into `src/`, so the container's constraint holds.
+
+The corollary is a rule with teeth: **`app.model.…` is the only spelling allowed anywhere in the repo**, including tests and `scripts/`. [conftest.py](conftest.py) puts both the repo root and `api/` on `sys.path`, so `api.app.model.predictor` and `app.model.predictor` both resolve — to *different module objects*. Two classes, `isinstance` false between them, pickles not interchangeable. Both bugs have already happened here once.
 
 `dataset/` and `models/` hold only `.gitkeep`; `*.parquet`, `*.csv`, `*.pkl`, `*.h5` are gitignored. Data and artifacts are never committed — treat both directories as locally-populated.
 
