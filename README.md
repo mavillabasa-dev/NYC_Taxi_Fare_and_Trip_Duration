@@ -379,7 +379,10 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 
 - [x] `api/requirements.txt` **pinned** and containing the runtime library for the
       winning model from T-109. Acceptance test: `make run` on a clean machine loads
-      `model.pkl` without `ModuleNotFoundError`.
+      `model.pkl` without `ModuleNotFoundError`. **Verified in CI**
+      ([.github/workflows/ci.yml](.github/workflows/ci.yml)) on every push — the team's
+      Windows machines have hardware virtualisation disabled by corporate policy, so
+      Docker cannot run on any of them.
 - [x] Obsolete `version: "3.9"` key removed from `docker-compose.yml` (Compose v2
       warns on it).
 - [x] Dashboard service added to `docker-compose.yml` with the API reachable by
@@ -531,6 +534,27 @@ python scripts\benchmark_api.py --requests 1000 --concurrency 10 --compare
 
 Single test: `pytest tests/test_predictor_parity.py::test_paths_agree_on_every_location_id_the_api_accepts`
 or `pytest -k <expr>`.
+
+### 6. Continuous integration
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push and pull request:
+
+- **Lint and test suite** — `ruff`, `black --check`, then `pytest` with a generated
+  fixture artifact so the model-dependent tests actually run instead of skipping.
+- **Container** — builds the API image, starts it, waits for the Docker healthcheck, and
+  asserts `/health` reports `model_loaded: true`. It then checks `/predict` answers, that
+  zones 264 and 265 stay within sane bounds, and that an out-of-range `LocationID` is
+  rejected with 422 rather than 500.
+
+That second job exists for a specific reason: **no development machine on the team can
+run Docker.** They are corporate Windows builds with hardware virtualisation disabled, so
+T-114's acceptance criterion was unverifiable locally. CI checks it on every push instead
+of once by hand.
+
+It is a genuine regression test. The artifact only unpickles inside the image if the
+predictor class was serialised as `app.model.predictor`; reintroducing the
+`api.app.model.predictor` spelling anywhere makes `/health` report `degraded` and turns
+the job red.
 
 ---
 

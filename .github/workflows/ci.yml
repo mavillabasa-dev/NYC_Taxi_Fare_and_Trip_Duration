@@ -1,0 +1,207 @@
+# Continuous integration.
+#
+# The container job exists because T-114's acceptance criterion — "`make run` on a clean
+# machine loads model.pkl without ModuleNotFoundError" — could not be verified by anyone
+# on the team: the development machines are corporate Windows builds with hardware
+# virtualisation disabled, so Docker cannot run there at all. Rather than leave the
+# project's central deployment claim untested, it is checked here on every push.
+#
+# It is a real regression test, not a smoke test. The artifact only unpickles inside the
+# image if the predictor class was serialised under `app.model.predictor`; reintroducing
+# the `api.app.model.predictor` spelling anywhere makes /health report "degraded" and
+# turns this job red.
+
+name: CI
+
+on:
+  push:
+    branches: [main, final-review]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  quality:
+    name: Lint and test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            api/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: |
+          ruff check .
+          black --check .
+
+      # dataset/ and models/ are gitignored, so a fresh checkout has neither. The fixture
+      # gives the artifact-dependent tests something to run against — without it they
+      # skip, and the isolation acceptance test is exactly one of those.
+      - name: Generate the development fixture artifact
+        run: python scripts/dev_fixture_model.py
+
+      # -rs lists every skip with its reason. The dataset-dependent tests still skip
+      # here, and naming them keeps a silent drop in coverage visible in the log rather
+      # than hidden behind a green tick.
+      - name: Run the test suite
+        run: pytest -q -rs
+
+  container:
+    name: Container loads the artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+
+      # Only the container's own runtime deps. If the fixture can be built with these,
+      # the image can load what it produces.
+      - name: Install the container runtime dependencies
+        run: pip install -r api/requirements.txt
+
+      - name: Generate the model artifact
+        run: python scripts/dev_fixture_model.py
+
+      - name: Create .env
+        run: cp .env.original .env
+
+      - name: Validate the compose file
+        run: docker compose config --quiet
+
+      - name: Build the API image
+        run: docker compose build api
+
+      - name: Start the API
+        run: docker compose up -d api
+
+      - name: Wait for the healthcheck to pass
+        run: |
+          cid="$(docker compose ps -q api)"
+          for i in $(seq 1 60); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo starting)"
+            case "$status" in
+              healthy)   echo "healthy after ~$((i * 2))s"; exit 0 ;;
+              unhealthy) echo "container reported unhealthy"; exit 1 ;;
+            esac
+            sleep 2
+          done
+          echo "timed out waiting for the healthcheck"
+          exit 1
+
+      # The assertion that matters. A bundle pickled under the wrong module path loads
+      # as "degraded" with the ModuleNotFoundError in `detail`, so print the body before
+      # asserting — the failure message is the diagnosis.
+      - name: Assert the model actually loaded
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          body = json.load(urllib.request.urlopen("http://localhost:8000/health", timeout=10))
+          print(json.dumps(body, indent=2))
+          assert body["model_loaded"] is True, f"model not loaded: {body.get('detail')}"
+          assert body["status"] == "ok", f"health is {body['status']}: {body.get('detail')}"
+          assert body.get("model_version"), "the bundle carries no version string"
+          PY
+
+      - name: Assert /predict answers
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          payload = {
+              "PULocationID": 132,
+              "DOLocationID": 236,
+              "tpep_pickup_datetime": "2022-05-20T14:30:00",
+              "passenger_count": 2,
+              "RatecodeID": 1,
+              "trip_distance": 6.2,
+          }
+          req = urllib.request.Request(
+              "http://localhost:8000/predict",
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json"},
+          )
+          body = json.load(urllib.request.urlopen(req, timeout=10))
+          print(json.dumps(body, indent=2))
+          assert body["predicted_fare"] > 0, body
+          assert body["predicted_duration_minutes"] > 0, body
+          PY
+
+      # LocationID 264 and 265 have no shapefile centroid but the schema accepts them.
+      # They once produced a ~5,400-mile trip through the fast path; keep that closed.
+      - name: Assert the zones without a centroid stay sane
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          for zone in (264, 265):
+              payload = {
+                  "PULocationID": zone,
+                  "DOLocationID": 236,
+                  "tpep_pickup_datetime": "2022-05-20T14:30:00",
+                  "passenger_count": 1,
+                  "RatecodeID": 1,
+                  "trip_distance": 3.0,
+              }
+              req = urllib.request.Request(
+                  "http://localhost:8000/predict",
+                  data=json.dumps(payload).encode(),
+                  headers={"Content-Type": "application/json"},
+              )
+              body = json.load(urllib.request.urlopen(req, timeout=10))
+              print(zone, body)
+              assert 0 < body["predicted_fare"] < 500, f"zone {zone}: {body}"
+              assert 0 < body["predicted_duration_minutes"] < 360, f"zone {zone}: {body}"
+          PY
+
+      - name: Assert invalid input is rejected with 422, never 500
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+          payload = {
+              "PULocationID": 999,          # outside 1..265
+              "DOLocationID": 236,
+              "tpep_pickup_datetime": "2022-05-20T14:30:00",
+              "passenger_count": 2,
+              "RatecodeID": 1,
+              "trip_distance": 6.2,
+          }
+          req = urllib.request.Request(
+              "http://localhost:8000/predict",
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json"},
+          )
+          try:
+              urllib.request.urlopen(req, timeout=10)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 422, f"expected 422, got {exc.code}"
+              print("rejected with 422 as expected")
+          else:
+              raise AssertionError("an out-of-range LocationID was accepted")
+          PY
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color api
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes --remove-orphans
