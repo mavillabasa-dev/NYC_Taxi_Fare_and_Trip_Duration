@@ -249,31 +249,46 @@ class SelfContainedTaxiModel:
             else 0.0
         )
 
-        pu_coords = self.centroid_lookup.get(pu_id, (0.0, 0.0))
-        do_coords = self.centroid_lookup.get(do_id, (0.0, 0.0))
-        pu_lat = pu_coords[0] if not math.isnan(pu_coords[0]) else 0.0
-        pu_lon = pu_coords[1] if not math.isnan(pu_coords[1]) else 0.0
-        do_lat = do_coords[0] if not math.isnan(do_coords[0]) else 0.0
-        do_lon = do_coords[1] if not math.isnan(do_coords[1]) else 0.0
+        # Not every LocationID the API accepts has a centroid: the Taxi Zone Shapefile
+        # only carries geometry for 1-263, so 264 ("Unknown") and 265 ("N/A") arrive
+        # here as NaN. Keep them NaN and zero the distances — that is exactly what the
+        # DataFrame path produces via nan_to_num, and what the model was trained on.
+        # Defaulting the coordinates to (0.0, 0.0) instead fabricates a ~5,400-mile
+        # trip from the Gulf of Guinea and silently poisons the prediction.
+        pu_lat, pu_lon = self.centroid_lookup.get(pu_id, (math.nan, math.nan))
+        do_lat, do_lon = self.centroid_lookup.get(do_id, (math.nan, math.nan))
 
-        # Fast Haversine scalar
-        phi1 = math.radians(pu_lat)
-        phi2 = math.radians(do_lat)
-        dphi = math.radians(do_lat - pu_lat)
-        dlambda = math.radians(do_lon - pu_lon)
-        a = (
-            math.sin(dphi / 2.0) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
-        )
-        haversine = (
-            2.0 * EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(max(0.0, a))))
+        coords_known = not (
+            math.isnan(pu_lat)
+            or math.isnan(pu_lon)
+            or math.isnan(do_lat)
+            or math.isnan(do_lon)
         )
 
-        # Fast Manhattan scalar
-        lat_mid = math.radians((pu_lat + do_lat) / 2.0)
-        dlat_miles = abs(do_lat - pu_lat) * MILES_PER_DEGREE_LATITUDE
-        dlon_miles = abs(do_lon - pu_lon) * MILES_PER_DEGREE_LATITUDE * math.cos(lat_mid)
-        manhattan = dlat_miles + dlon_miles
+        if coords_known:
+            # Fast Haversine scalar
+            phi1 = math.radians(pu_lat)
+            phi2 = math.radians(do_lat)
+            dphi = math.radians(do_lat - pu_lat)
+            dlambda = math.radians(do_lon - pu_lon)
+            a = (
+                math.sin(dphi / 2.0) ** 2
+                + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+            )
+            haversine = (
+                2.0 * EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(max(0.0, a))))
+            )
+
+            # Fast Manhattan scalar
+            lat_mid = math.radians((pu_lat + do_lat) / 2.0)
+            dlat_miles = abs(do_lat - pu_lat) * MILES_PER_DEGREE_LATITUDE
+            dlon_miles = (
+                abs(do_lon - pu_lon) * MILES_PER_DEGREE_LATITUDE * math.cos(lat_mid)
+            )
+            manhattan = dlat_miles + dlon_miles
+        else:
+            haversine = 0.0
+            manhattan = 0.0
 
         haversine_ratio = min(
             max(haversine / (trip_dist + EPSILON_DISTANCE), 0.0), MAX_HAVERSINE_RATIO
