@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 # sys.path, so the two spellings resolve to *different* module objects: isinstance fails
 # across them, and a pickle written under one does not load under the other. `app.…` is
 # what api/main.py uses and the only package that exists inside the container.
-from app.model.services import REQUIRED_BUNDLE_KEYS, REQUEST_FEATURES
+from app.model.services import REQUEST_FEATURES, REQUIRED_BUNDLE_KEYS
 from src.config import MODELS_DIR
 from src.model_selection import verify_model_isolation
 

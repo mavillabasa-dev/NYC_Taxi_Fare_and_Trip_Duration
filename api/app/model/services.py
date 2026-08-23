@@ -48,9 +48,7 @@ class ModelService:
 
             missing_keys = REQUIRED_BUNDLE_KEYS - bundle.keys()
             if missing_keys:
-                raise ValueError(
-                    f"Model artifact is missing keys: {sorted(missing_keys)}"
-                )
+                raise ValueError(f"Model artifact is missing keys: {sorted(missing_keys)}")
 
             feature_order = list(bundle["feature_order"])
             if set(feature_order) != REQUEST_FEATURES:
@@ -97,8 +95,7 @@ class ModelService:
                 # but never silently: the two paths are meant to be numerically
                 # identical, so reaching this branch is a bug, not a tuning knob.
                 logger.warning(
-                    "predict_fast failed for payload %r; falling back to the "
-                    "DataFrame path.",
+                    "predict_fast failed for payload %r; falling back to the " "DataFrame path.",
                     input_data,
                     exc_info=True,
                 )
@@ -112,9 +109,7 @@ class ModelService:
         try:
             predicted_fare, predicted_duration = prediction[0]
         except (IndexError, TypeError, ValueError) as exc:
-            raise RuntimeError(
-                "Model must return [fare, duration] for each input row"
-            ) from exc
+            raise RuntimeError("Model must return [fare, duration] for each input row") from exc
 
         return PredictionResponse(
             predicted_fare=float(predicted_fare),

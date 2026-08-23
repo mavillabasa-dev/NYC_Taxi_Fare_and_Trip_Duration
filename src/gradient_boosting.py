@@ -158,9 +158,7 @@ def _pipeline_and_space(
     if transformer is None:
         return model, dict(SEARCH_SPACES[model_family])
 
-    pipeline = Pipeline(
-        [("features", clone(transformer)), ("model", model)]
-    )
+    pipeline = Pipeline([("features", clone(transformer)), ("model", model)])
     space = {f"model__{key}": value for key, value in SEARCH_SPACES[model_family].items()}
     return pipeline, space
 
@@ -180,9 +178,7 @@ def tune_model(
     if len(x_train) <= config.cv_splits:
         raise ValueError("Training rows must exceed the number of CV splits")
 
-    estimator, parameters = _pipeline_and_space(
-        model_family, transformer, config.random_seed
-    )
+    estimator, parameters = _pipeline_and_space(model_family, transformer, config.random_seed)
     cv = TimeSeriesSplit(n_splits=config.cv_splits)
     search = RandomizedSearchCV(
         estimator=estimator,
@@ -253,7 +249,10 @@ def feature_importance(
         names = [f"feature_{index}" for index in range(len(values))]
     total = values.sum()
     normalized = values / total if total > 0 else values
-    ordered = sorted(zip(names, normalized), key=lambda item: item[1], reverse=True)
+    # strict=True: the guard above already equalises the lengths, so a mismatch here
+    # would mean that guard broke — and silently truncating would mislabel every
+    # importance from the truncation point on.
+    ordered = sorted(zip(names, normalized, strict=True), key=lambda item: item[1], reverse=True)
     return {str(name): float(value) for name, value in ordered}
 
 
@@ -271,17 +270,14 @@ def run_experiments(
     if missing:
         raise ValueError(f"Missing target columns: {missing}")
     # Exclude both project targets even when a caller requests only one of them.
-    feature_columns = [
-        column for column in train_df.columns if column not in TARGET_COLUMNS
-    ]
+    feature_columns = [column for column in train_df.columns if column not in TARGET_COLUMNS]
     if "tpep_pickup_datetime" in feature_columns:
         train_df = train_df.sort_values("tpep_pickup_datetime").reset_index(drop=True)
         test_df = test_df.sort_values("tpep_pickup_datetime").reset_index(drop=True)
         if (
             not train_df.empty
             and not test_df.empty
-            and train_df["tpep_pickup_datetime"].max()
-            >= test_df["tpep_pickup_datetime"].min()
+            and train_df["tpep_pickup_datetime"].max() >= test_df["tpep_pickup_datetime"].min()
         ):
             raise ValueError("Train/test periods overlap; expected a strict temporal split")
     x_train = train_df[feature_columns]
@@ -350,9 +346,7 @@ def save_results(runs: Sequence[ModelRun], output_dir: os.PathLike[str] | str) -
         },
         "runs": [run.report_dict() for run in runs],
     }
-    (destination / "t107_results.json").write_text(
-        json.dumps(report, indent=2), encoding="utf-8"
-    )
+    (destination / "t107_results.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
 def _parse_args() -> argparse.Namespace:

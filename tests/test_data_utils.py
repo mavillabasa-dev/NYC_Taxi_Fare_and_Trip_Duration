@@ -1,5 +1,6 @@
 # tests/test_data_utils.py — Unit tests for data ingestion, guardrails, and GIS centroids
 import os
+
 import pandas as pd
 import pytest
 
@@ -58,9 +59,7 @@ def test_validate_parquet_dataset():
 def test_validate_lookup_csv():
     """Test zone lookup CSV validation."""
     assert os.path.exists(TAXI_ZONE_LOOKUP_PATH), "Lookup CSV should exist for test"
-    rows = validate_lookup_csv(
-        TAXI_ZONE_LOOKUP_PATH, min_row_count=MIN_LOOKUP_ROW_COUNT
-    )
+    rows = validate_lookup_csv(TAXI_ZONE_LOOKUP_PATH, min_row_count=MIN_LOOKUP_ROW_COUNT)
     assert rows >= 260
 
 

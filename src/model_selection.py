@@ -21,7 +21,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import joblib
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
@@ -37,7 +36,6 @@ from src.config import (
     MODELS_DIR,
     RANDOM_SEED,
     TAXI_ZONE_CENTROIDS_PATH,
-    TAXI_ZONE_LOOKUP_PATH,
     TEST_CLEANED_PATH,
     TRAIN_CLEANED_PATH,
 )
@@ -122,8 +120,7 @@ def load_t107_best_params(
         # RandomizedSearchCV prefixes parameters with the pipeline step name
         # ("model__num_leaves") when a transformer is part of the searched estimator.
         params = {
-            key.split("__", 1)[-1]: value
-            for key, value in (run.get("best_params") or {}).items()
+            key.split("__", 1)[-1]: value for key, value in (run.get("best_params") or {}).items()
         }
         tuned[run["target"]] = params
 
@@ -202,23 +199,31 @@ def compute_feature_importances(
     dur_gain = lgb_dur.booster_.feature_importance(importance_type="gain")
     dur_split = lgb_dur.booster_.feature_importance(importance_type="split")
 
-    df_fare = pd.DataFrame(
-        {
-            "feature": feature_names,
-            "gain": fare_gain,
-            "split": fare_split,
-            "gain_pct": (fare_gain / fare_gain.sum()) * 100.0,
-        }
-    ).sort_values("gain", ascending=False).reset_index(drop=True)
+    df_fare = (
+        pd.DataFrame(
+            {
+                "feature": feature_names,
+                "gain": fare_gain,
+                "split": fare_split,
+                "gain_pct": (fare_gain / fare_gain.sum()) * 100.0,
+            }
+        )
+        .sort_values("gain", ascending=False)
+        .reset_index(drop=True)
+    )
 
-    df_dur = pd.DataFrame(
-        {
-            "feature": feature_names,
-            "gain": dur_gain,
-            "split": dur_split,
-            "gain_pct": (dur_gain / dur_gain.sum()) * 100.0,
-        }
-    ).sort_values("gain", ascending=False).reset_index(drop=True)
+    df_dur = (
+        pd.DataFrame(
+            {
+                "feature": feature_names,
+                "gain": dur_gain,
+                "split": dur_split,
+                "gain_pct": (dur_gain / dur_gain.sum()) * 100.0,
+            }
+        )
+        .sort_values("gain", ascending=False)
+        .reset_index(drop=True)
+    )
 
     return {"fare": df_fare, "duration": df_dur}
 
@@ -261,38 +266,54 @@ def conduct_residual_analysis(
     df_eval["distance_bucket"] = pd.cut(df_eval["trip_distance"], bins=bins, labels=labels)
 
     # 1. Residuals by Hour of Day
-    by_hour = df_eval.groupby("pickup_hour").agg(
-        trips=("fare_amount", "count"),
-        fare_mae=("abs_res_fare", "mean"),
-        fare_mean_res=("res_fare", "mean"),
-        dur_mae=("abs_res_dur", "mean"),
-        dur_mean_res=("res_dur", "mean"),
-    ).round(4)
+    by_hour = (
+        df_eval.groupby("pickup_hour")
+        .agg(
+            trips=("fare_amount", "count"),
+            fare_mae=("abs_res_fare", "mean"),
+            fare_mean_res=("res_fare", "mean"),
+            dur_mae=("abs_res_dur", "mean"),
+            dur_mean_res=("res_dur", "mean"),
+        )
+        .round(4)
+    )
 
     # 2. Residuals by Pickup Borough
-    by_borough = df_eval.groupby("pu_borough").agg(
-        trips=("fare_amount", "count"),
-        fare_mae=("abs_res_fare", "mean"),
-        fare_mean_res=("res_fare", "mean"),
-        dur_mae=("abs_res_dur", "mean"),
-        dur_mean_res=("res_dur", "mean"),
-    ).round(4)
+    by_borough = (
+        df_eval.groupby("pu_borough")
+        .agg(
+            trips=("fare_amount", "count"),
+            fare_mae=("abs_res_fare", "mean"),
+            fare_mean_res=("res_fare", "mean"),
+            dur_mae=("abs_res_dur", "mean"),
+            dur_mean_res=("res_dur", "mean"),
+        )
+        .round(4)
+    )
 
     # 3. Residuals by Trip Distance Bucket
-    by_distance = df_eval.groupby("distance_bucket", observed=False).agg(
-        trips=("fare_amount", "count"),
-        fare_mae=("abs_res_fare", "mean"),
-        dur_mae=("abs_res_dur", "mean"),
-    ).round(4)
+    by_distance = (
+        df_eval.groupby("distance_bucket", observed=False)
+        .agg(
+            trips=("fare_amount", "count"),
+            fare_mae=("abs_res_fare", "mean"),
+            dur_mae=("abs_res_dur", "mean"),
+        )
+        .round(4)
+    )
 
     # 4. Residuals by RatecodeID (Airport vs Standard)
-    by_ratecode = df_eval.groupby("RatecodeID").agg(
-        trips=("fare_amount", "count"),
-        fare_mae=("abs_res_fare", "mean"),
-        fare_mean_res=("res_fare", "mean"),
-        dur_mae=("abs_res_dur", "mean"),
-        dur_mean_res=("res_dur", "mean"),
-    ).round(4)
+    by_ratecode = (
+        df_eval.groupby("RatecodeID")
+        .agg(
+            trips=("fare_amount", "count"),
+            fare_mae=("abs_res_fare", "mean"),
+            fare_mean_res=("res_fare", "mean"),
+            dur_mae=("abs_res_dur", "mean"),
+            dur_mean_res=("res_dur", "mean"),
+        )
+        .round(4)
+    )
 
     return {
         "by_hour": by_hour,
@@ -363,8 +384,7 @@ def export_comparison_report(
             target: _frame_to_records(df) for target, df in feature_importances.items()
         },
         "residual_analysis": {
-            slice_name: _frame_to_records(df)
-            for slice_name, df in residual_analysis.items()
+            slice_name: _frame_to_records(df) for slice_name, df in residual_analysis.items()
         },
     }
 
@@ -416,7 +436,9 @@ def export_production_model(
         global_fare_mean = feat_pipe.target_encoder.global_means_.get("fare", 15.15)
         feature_names = getattr(feat_pipe, "feature_names_", None)
     else:
-        logger.warning(f"Feature pipeline not found at {pipeline_path}. Target encodings will be empty.")
+        logger.warning(
+            f"Feature pipeline not found at {pipeline_path}. Target encodings will be empty."
+        )
 
     # 3. Instantiate SelfContainedTaxiModel
     model = SelfContainedTaxiModel(

@@ -1,7 +1,8 @@
 # tests/test_docker_config.py — Validation tests for Docker and Docker Compose configuration (T-114).
 from pathlib import Path
-import yaml
+
 import pytest
+import yaml
 
 
 @pytest.fixture
@@ -19,7 +20,9 @@ def compose_config(repo_root) -> dict:
 
 def test_docker_compose_v2_specification(compose_config):
     """Assert that obsolete version key is removed and services exist."""
-    assert "version" not in compose_config, "Obsolete top-level 'version' key must be removed for Compose v2"
+    assert (
+        "version" not in compose_config
+    ), "Obsolete top-level 'version' key must be removed for Compose v2"
     assert "services" in compose_config, "Missing 'services' in docker-compose.yml"
     services = compose_config["services"]
     assert "api" in services, "Missing 'api' service in docker-compose.yml"
@@ -37,7 +40,9 @@ def test_api_service_config(compose_config):
 
     # Check models volume mount
     volumes = api.get("volumes", [])
-    assert any("./models:/app/models" in v for v in volumes), "api service must mount ./models:/app/models"
+    assert any(
+        "./models:/app/models" in v for v in volumes
+    ), "api service must mount ./models:/app/models"
 
     # Check healthcheck
     healthcheck = api.get("healthcheck", {})
@@ -58,19 +63,25 @@ def test_dashboard_service_config(compose_config):
 
     # Check dataset volume mount
     volumes = dashboard.get("volumes", [])
-    assert any("./dataset:/app/dataset" in v for v in volumes), "dashboard service must mount ./dataset:/app/dataset"
+    assert any(
+        "./dataset:/app/dataset" in v for v in volumes
+    ), "dashboard service must mount ./dataset:/app/dataset"
 
     # Check dependency on api health
     depends_on = dashboard.get("depends_on", {})
     assert "api" in depends_on, "dashboard must depend on api"
     if isinstance(depends_on, dict):
-        assert depends_on["api"].get("condition") == "service_healthy", "dashboard must wait for api condition service_healthy"
+        assert (
+            depends_on["api"].get("condition") == "service_healthy"
+        ), "dashboard must wait for api condition service_healthy"
 
 
 def test_trainer_service_config(compose_config):
     """Validate trainer profile isolation and volume mounts."""
     trainer = compose_config["services"]["trainer"]
-    assert "train" in trainer.get("profiles", []), "trainer service must be registered under profiles: ['train']"
+    assert "train" in trainer.get(
+        "profiles", []
+    ), "trainer service must be registered under profiles: ['train']"
     assert trainer["build"]["dockerfile"] == "Dockerfile.train"
     assert trainer.get("restart") == "no", "trainer service must have restart: 'no'"
 

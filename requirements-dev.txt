@@ -16,3 +16,9 @@
 pytest==9.1.1
 httpx==0.28.1        # FastAPI TestClient dependency
 PyYAML==6.0.3        # tests/test_docker_config.py parses docker-compose.yml
+
+# Lint and format. Configuration is in pyproject.toml; hooks in .pre-commit-config.yaml.
+# After installing, run `pre-commit install` once so they fire on commit.
+ruff==0.16.4
+black==26.5.1
+pre-commit==4.6.2

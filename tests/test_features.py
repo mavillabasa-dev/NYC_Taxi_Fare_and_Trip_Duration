@@ -1,6 +1,7 @@
 # tests/test_features.py — Unit & Integration tests for Feature Engineering Pipeline (T-105)
 import os
 import pickle
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,7 +9,6 @@ import pytest
 from src.config import (
     ALLOWED_FEATURES,
     BANNED_COLUMNS,
-    TEST_CLEANED_PATH,
     TRAIN_CLEANED_PATH,
 )
 from src.features import (
@@ -67,9 +67,7 @@ def test_haversine_and_manhattan_calculations():
     man_dist = calculate_manhattan_distance(lat1, lon1, lat2, lon2)
 
     assert 13.0 <= hav_dist <= 14.0
-    assert (
-        man_dist >= hav_dist
-    )  # Manhattan distance >= straight-line Haversine distance
+    assert man_dist >= hav_dist  # Manhattan distance >= straight-line Haversine distance
 
 
 def test_temporal_feature_extractor(sample_raw_dataframe):

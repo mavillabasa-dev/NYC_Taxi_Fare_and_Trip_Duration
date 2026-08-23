@@ -1,6 +1,6 @@
 # tests/test_baselines.py — Unit tests for baseline regressors and metrics (T-106)
 import os
-import pickle
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,12 +8,9 @@ from sklearn.dummy import DummyRegressor
 from sklearn.tree import DecisionTreeRegressor
 
 from src.config import (
-    ALLOWED_FEATURES,
-    MODELS_DIR,
     TEST_CLEANED_PATH,
     TRAIN_CLEANED_PATH,
 )
-from src.features import NYCFeaturePipeline
 from src.train import (
     calculate_metrics,
     measure_inference_time,

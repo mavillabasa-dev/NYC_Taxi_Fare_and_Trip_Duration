@@ -24,9 +24,10 @@ ACCEPTANCE CRITERIA VERIFIED (T-105):
 import logging
 import os
 import pickle
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List, Optional, Tuple, Union
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from src.config import (
@@ -34,7 +35,6 @@ from src.config import (
     AM_RUSH_END_HOUR,
     AM_RUSH_START_HOUR,
     DAYS_IN_WEEK,
-    DEFAULT_GLOBAL_FARE_MEAN,
     DEFAULT_TARGET_ENCODING_SMOOTHING,
     EARTH_RADIUS_MILES,
     EPSILON_DISTANCE,
@@ -50,14 +50,10 @@ from src.config import (
     NEWARK_RATECODE_ID,
     PM_RUSH_END_HOUR,
     PM_RUSH_START_HOUR,
-    RANDOM_SEED,
     TAXI_ZONE_CENTROIDS_PATH,
-    TAXI_ZONE_LOOKUP_PATH,
 )
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -76,10 +72,7 @@ def calculate_haversine_distance(
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
 
-    a = (
-        np.sin(dphi / 2.0) ** 2
-        + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
-    )
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
     return 2.0 * R * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
 
 
@@ -107,9 +100,7 @@ class TemporalFeatureExtractor(BaseEstimator, TransformerMixin):
     def __init__(self) -> None:
         pass
 
-    def fit(
-        self, X: pd.DataFrame, y: Optional[Any] = None
-    ) -> "TemporalFeatureExtractor":
+    def fit(self, X: pd.DataFrame, y: Optional[Any] = None) -> "TemporalFeatureExtractor":
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -158,9 +149,7 @@ class SpatialZoneFeatureExtractor(BaseEstimator, TransformerMixin):
         self.centroids_path = centroids_path
         self.centroids_df: Optional[pd.DataFrame] = None
 
-    def fit(
-        self, X: pd.DataFrame, y: Optional[Any] = None
-    ) -> "SpatialZoneFeatureExtractor":
+    def fit(self, X: pd.DataFrame, y: Optional[Any] = None) -> "SpatialZoneFeatureExtractor":
         if os.path.exists(self.centroids_path):
             self.centroids_df = pd.read_csv(self.centroids_path)
         else:
@@ -206,9 +195,7 @@ class SpatialZoneFeatureExtractor(BaseEstimator, TransformerMixin):
         ).clip(upper=MAX_HAVERSINE_RATIO)
 
         # Categorical spatial indicators
-        X_out["is_same_zone"] = (
-            X_out["PULocationID"] == X_out["DOLocationID"]
-        ).astype(int)
+        X_out["is_same_zone"] = (X_out["PULocationID"] == X_out["DOLocationID"]).astype(int)
 
         # Airport flags (JFK = RatecodeID 2 or Zone 132; Newark = RatecodeID 3 or Zone 1)
         is_jfk_rate = X_out["RatecodeID"] == JFK_RATECODE_ID
@@ -273,9 +260,7 @@ class TargetCategoricalEncoder(BaseEstimator, TransformerMixin):
                 # Smoothed target encoding formula: (n * mean + m * global_mean) / (n + m)
                 n = stats["count"]
                 cat_mean = stats["mean"]
-                smoothed = (n * cat_mean + self.smoothing * global_mean) / (
-                    n + self.smoothing
-                )
+                smoothed = (n * cat_mean + self.smoothing * global_mean) / (n + self.smoothing)
 
                 self.target_maps_[col] = smoothed.to_dict()
 
@@ -306,9 +291,7 @@ class NYCFeaturePipeline(BaseEstimator, TransformerMixin):
         self.smoothing = smoothing
 
         self.temporal_extractor = TemporalFeatureExtractor()
-        self.spatial_extractor = SpatialZoneFeatureExtractor(
-            centroids_path=centroids_path
-        )
+        self.spatial_extractor = SpatialZoneFeatureExtractor(centroids_path=centroids_path)
         self.target_encoder = TargetCategoricalEncoder(smoothing=smoothing)
         self.feature_names_: List[str] = []
 

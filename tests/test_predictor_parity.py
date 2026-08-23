@@ -1,4 +1,4 @@
-# tests/test_predictor_parity.py — The two inference paths must stay numerically identical.
+﻿# tests/test_predictor_parity.py â€” The two inference paths must stay numerically identical.
 #
 # SelfContainedTaxiModel computes the same 29 features twice:
 #
@@ -22,7 +22,7 @@ from app.model.schema import MAX_LOCATION_ID, MIN_LOCATION_ID
 # Zones with shapefile geometry. The Taxi Zone Shapefile carries 263 polygons, so
 # LocationID 264 ("Unknown") and 265 ("N/A") have no centroid. derive_zone_centroids
 # left-joins the lookup against those polygons, which leaves both rows with NaN
-# coordinates, and export_production_model copies them into the bundle as (nan, nan) —
+# coordinates, and export_production_model copies them into the bundle as (nan, nan) â€”
 # so they are present in the lookup, not missing from it. Cover both shapes anyway.
 LAST_ZONE_WITH_GEOMETRY = 263
 
@@ -128,7 +128,7 @@ def test_paths_agree_on_representative_trips(label, payload):
     model, spy = _build_model()
     names, slow, fast = _both_paths(model, spy, payload)
 
-    for name, slow_value, fast_value in zip(names, slow, fast):
+    for name, slow_value, fast_value in zip(names, slow, fast, strict=True):
         assert _equal(slow_value, fast_value), (
             f"[{label}] feature '{name}' diverges: "
             f"transform_features={slow_value!r} predict_fast={fast_value!r}"
@@ -137,7 +137,7 @@ def test_paths_agree_on_representative_trips(label, payload):
 
 def test_paths_agree_on_every_location_id_the_api_accepts():
     """The schema admits LocationID 1..265, so every one of them must round-trip
-    through both paths identically — including the zones with no centroid."""
+    through both paths identically â€” including the zones with no centroid."""
     model, spy = _build_model()
     mismatches = []
 
@@ -145,11 +145,10 @@ def test_paths_agree_on_every_location_id_the_api_accepts():
         for role in ("PULocationID", "DOLocationID"):
             payload = _payload(**{role: zone})
             names, slow, fast = _both_paths(model, spy, payload)
-            for name, slow_value, fast_value in zip(names, slow, fast):
+            for name, slow_value, fast_value in zip(names, slow, fast, strict=True):
                 if not _equal(slow_value, fast_value):
                     mismatches.append(
-                        f"{role}={zone} '{name}': "
-                        f"dataframe={slow_value!r} fast={fast_value!r}"
+                        f"{role}={zone} '{name}': " f"dataframe={slow_value!r} fast={fast_value!r}"
                     )
 
     assert not mismatches, "Inference paths diverge:\n  " + "\n  ".join(mismatches[:20])
@@ -162,7 +161,7 @@ def test_zone_without_centroid_does_not_fabricate_a_distance(zone):
     a ~5,400-mile trip while the training path had produced 0.0."""
     model, spy = _build_model()
     names, _, fast = _both_paths(model, spy, _payload(PULocationID=zone))
-    values = dict(zip(names, fast))
+    values = dict(zip(names, fast, strict=True))
 
     assert math.isnan(values["pu_lat"])
     assert math.isnan(values["pu_lon"])

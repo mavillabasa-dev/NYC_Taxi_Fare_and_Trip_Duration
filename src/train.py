@@ -20,7 +20,8 @@ import logging
 import os
 import pickle
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
+
 import numpy as np
 import pandas as pd
 from sklearn.dummy import DummyRegressor
@@ -193,7 +194,9 @@ def train_and_evaluate_baselines(
 
     # Print summary table
     summary_df = pd.DataFrame(results).T
-    logger.info("\n=== Baseline Models Evaluation Summary (Test Set) ===\n" + summary_df.to_string())
+    logger.info(
+        "\n=== Baseline Models Evaluation Summary (Test Set) ===\n" + summary_df.to_string()
+    )
 
     if save_models:
         os.makedirs(MODELS_DIR, exist_ok=True)

@@ -1,0 +1,58 @@
+# Tooling configuration. Ticket: T-101 (lint/format were never configured).
+#
+# This file carries no build metadata on purpose — the project is not packaged and is
+# run from the repo root. It exists so that formatting and linting are decided once,
+# in version control, instead of per-editor.
+
+[tool.black]
+# 100, not black's default 88. The repo's 99th percentile line is exactly 100 chars,
+# so this matches what was already being written and reformats 55 lines instead of 190.
+line-length = 100
+target-version = ["py311"]
+extend-exclude = '''
+(
+    \.venv
+  | notebooks
+  | ppt
+)
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "notebooks", "ppt"]
+
+[tool.ruff.lint]
+# Deliberately conservative to start: real defects and import hygiene, not style
+# opinions. Widen it once the baseline is clean and stays clean.
+#   E/W — pycodestyle    F — pyflakes (undefined names, unused imports)
+#   I   — import sorting  B — common bug patterns
+#
+# `UP` (pyupgrade) is intentionally NOT enabled yet. It would rewrite ~127 annotations
+# from typing.Dict/Optional to dict/| across the codebase — correct for Python 3.11, but
+# a semantic-looking diff stacked on top of the reformat. Enable it as its own change.
+select = ["E", "W", "F", "I", "B"]
+ignore = [
+    "E501",    # line length is black's job, and it allows sensible overruns
+    "B008",    # function call in default argument: FastAPI's Depends() idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Both scripts must fix sys.path before importing app.model.*, so their imports
+# cannot all sit at the top of the file.
+"scripts/dev_fixture_model.py" = ["E402"]
+"scripts/benchmark_api.py" = ["E402"]
+"src/model_selection.py" = ["E402"]
+# Tests legitimately import inside functions to control when a module is loaded.
+"tests/*" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "app", "scripts", "ui"]
+
+[tool.pytest.ini_options]
+# Markers were registered in conftest.py via addinivalue_line; declaring them here too
+# is harmless and makes them discoverable without reading the conftest.
+markers = [
+    "requires_dataset: needs the ingested TLC files in dataset/",
+    "requires_model: needs a serialized bundle at models/model.pkl",
+]
