@@ -264,9 +264,9 @@ optional:  T-105 ⇢ T-117    T-104 ⇢ T-118
 - [x] Trivial baseline established first: predict the training mean for each target.
       Every later model is reported as improvement over this.
 - [x] Decision Tree trained for **both** targets.
-- [ ] Linear Regression — **still missing.** The ticket is marked complete on the
-      strength of the tree and the trivial baseline; the linear model named in the
-      title was never added.
+- [x] Linear Regression trained for both targets, behind a median imputer — the
+      coordinate features carry NaN for the two zones without a shapefile centroid,
+      which trees tolerate and linear models do not.
 - [x] Decision recorded and justified: two single-output models vs. one multi-output
       model. This choice binds T-107, T-108 and the `MODEL_PATH` contract in T-110.
 - [x] Metrics reported per target: MAE, RMSE, MAPE, R².
@@ -544,13 +544,15 @@ which the models saw during training. Full detail in
 | Model | Target | MAE | RMSE | MAPE | R² |
 |---|---|---:|---:|---:|---:|
 | Trivial mean baseline | fare | 8.8515 | 13.5709 | 77.69 % | −0.0002 |
-| Decision tree | fare | 1.4639 | 2.8936 | 12.28 % | 0.9545 |
 | MLP (64, 32) | fare | 2.1542 | 3.4451 | 19.89 % | 0.9355 |
+| Linear regression | fare | 2.0266 | 3.7087 | 19.13 % | 0.9253 |
+| Decision tree | fare | 1.4639 | 2.8936 | 12.28 % | 0.9545 |
 | XGBoost (tuned) | fare | 1.2726 | 3.0334 | 10.54 % | 0.9500 |
 | **LightGBM (tuned, winner)** | **fare** | **1.2639** | **2.9600** | **10.48 %** | **0.9524** |
 | Trivial mean baseline | duration | 9.2712 | 13.4220 | 99.09 % | −0.0002 |
-| Decision tree | duration | 3.9859 | 6.5208 | 30.38 % | 0.7639 |
 | MLP (64, 32) | duration | 6.1504 | 8.8628 | 51.68 % | 0.5639 |
+| Linear regression | duration | 5.2161 | 7.5091 | 51.66 % | 0.6869 |
+| Decision tree | duration | 3.9859 | 6.5208 | 30.38 % | 0.7639 |
 | XGBoost (tuned) | duration | 3.3831 | 5.6854 | 25.12 % | 0.8205 |
 | **LightGBM (tuned, winner)** | **duration** | **3.3650** | **5.6653** | **24.91 %** | **0.8218** |
 
@@ -559,8 +561,12 @@ within **3.4 minutes**. Against always answering the mean, that is 86 % and 64 %
 error respectively.
 
 LightGBM was chosen over XGBoost on cost, not accuracy — the two are within 0.7 % on MAE,
-but XGBoost took roughly **4× longer** to search and was slower per request. The MLP lost
-clearly, which is the expected result for tabular data.
+but XGBoost took roughly **4× longer** to search and was slower per request.
+
+**The MLP lost to linear regression on both targets**, which is worth knowing before
+anyone proposes a bigger network. Either 29 tabular features are the wrong problem for it,
+or it is under-trained at 20 epochs — T-108 did not run the experiment that separates
+those. Rows are ordered worst to best above.
 
 > The shipped artifact scores marginally worse than the winner row (fare MAE 1.2701,
 > duration 3.4087) because T-107 and T-109 build the target encoding differently for the

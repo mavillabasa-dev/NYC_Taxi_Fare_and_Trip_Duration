@@ -3,6 +3,9 @@
 This module implements the training, benchmarking, and evaluation of:
 1. Trivial Baseline Regressor (Predicting training mean for each target)
 2. Decision Tree Regressor (For both fare_amount and duration_minutes)
+3. Linear Regression (For both targets, behind a median imputer — see the note at the
+   call site: zones 264/265 have no centroid, so the coordinate features carry NaN that
+   trees tolerate and linear models do not)
 
 SINGLE-OUTPUT VS. MULTI-OUTPUT MODEL ARCHITECTURE DECISION (T-106):
 ------------------------------------------------------------------
@@ -25,7 +28,10 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 from sklearn.dummy import DummyRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 
 from src.config import (
@@ -192,6 +198,52 @@ def train_and_evaluate_baselines(
         "inference_latency_ms": lat_dt_dur,
     }
 
+    # 4. Linear Regression Baseline
+    #
+    # Wrapped in a Pipeline with a median imputer, unlike the tree above. Zones 264 and
+    # 265 have no shapefile geometry, so pu_lat/pu_lon/do_lat/do_lon arrive as NaN for
+    # roughly 1.6% of rows. DecisionTreeRegressor and LightGBM handle missing values
+    # natively; LinearRegression raises on them. The imputer is part of the estimator so
+    # the same handling applies at fit and at predict.
+    logger.info("--- Training Linear Regression Baselines ---")
+
+    def _linear_model() -> Pipeline:
+        return Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("model", LinearRegression()),
+            ]
+        )
+
+    # Fare Linear Regression
+    t0 = time.time()
+    lr_fare = _linear_model()
+    lr_fare.fit(X_train_feat, y_train_fare)
+    t_train_lr_fare = time.time() - t0
+    y_pred_lr_fare = lr_fare.predict(X_test_feat)
+    metrics_lr_fare = calculate_metrics(y_test_fare, y_pred_lr_fare)
+    lat_lr_fare = measure_inference_time(lr_fare, sample_single_row)
+
+    # Duration Linear Regression
+    t0 = time.time()
+    lr_dur = _linear_model()
+    lr_dur.fit(X_train_feat, y_train_dur)
+    t_train_lr_dur = time.time() - t0
+    y_pred_lr_dur = lr_dur.predict(X_test_feat)
+    metrics_lr_dur = calculate_metrics(y_test_dur, y_pred_lr_dur)
+    lat_lr_dur = measure_inference_time(lr_dur, sample_single_row)
+
+    results["LinearRegression_Fare"] = {
+        **metrics_lr_fare,
+        "train_time_sec": round(t_train_lr_fare, 4),
+        "inference_latency_ms": lat_lr_fare,
+    }
+    results["LinearRegression_Duration"] = {
+        **metrics_lr_dur,
+        "train_time_sec": round(t_train_lr_dur, 4),
+        "inference_latency_ms": lat_lr_dur,
+    }
+
     # Print summary table
     summary_df = pd.DataFrame(results).T
     logger.info(
@@ -204,6 +256,8 @@ def train_and_evaluate_baselines(
             pickle.dump({"fare": dummy_fare, "duration": dummy_dur}, f)
         with open(os.path.join(MODELS_DIR, "dt_models.pkl"), "wb") as f:
             pickle.dump({"fare": dt_fare, "duration": dt_dur}, f)
+        with open(os.path.join(MODELS_DIR, "linear_models.pkl"), "wb") as f:
+            pickle.dump({"fare": lr_fare, "duration": lr_dur}, f)
         logger.info(f"Saved baseline model artifacts to {MODELS_DIR}")
 
     return {
@@ -214,6 +268,8 @@ def train_and_evaluate_baselines(
             "dummy_dur": dummy_dur,
             "dt_fare": dt_fare,
             "dt_dur": dt_dur,
+            "lr_fare": lr_fare,
+            "lr_dur": lr_dur,
         },
     }
 

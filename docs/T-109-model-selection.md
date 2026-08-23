@@ -20,8 +20,10 @@ original units — dollars for fare, minutes for duration.
 |---|---|---:|---:|---:|---:|---:|---:|
 | Trivial mean baseline | fare | 8.8515 | 13.5709 | 77.69 % | −0.0002 | 0.01 s | 0.02 ms |
 | Trivial mean baseline | duration | 9.2712 | 13.4220 | 99.09 % | −0.0002 | 0.01 s | 0.03 ms |
-| Decision tree | fare | 1.4639 | 2.8936 | 12.28 % | 0.9545 | 25.5 s | 0.55 ms |
-| Decision tree | duration | 3.9859 | 6.5208 | 30.38 % | 0.7639 | 23.7 s | 0.54 ms |
+| Linear regression | fare | 2.0266 | 3.7087 | 19.13 % | 0.9253 | 10.7 s | 0.81 ms |
+| Linear regression | duration | 5.2161 | 7.5091 | 51.66 % | 0.6869 | 9.9 s | 0.81 ms |
+| Decision tree | fare | 1.4639 | 2.8936 | 12.28 % | 0.9545 | 24.6 s | 0.55 ms |
+| Decision tree | duration | 3.9859 | 6.5208 | 30.38 % | 0.7639 | 23.3 s | 0.54 ms |
 | MLP (64, 32) | fare | 2.1542 | 3.4451 | 19.89 % | 0.9355 | 74.8 s | 0.91 ms |
 | MLP (64, 32) | duration | 6.1504 | 8.8628 | 51.68 % | 0.5639 | 80.0 s | 1.31 ms |
 | XGBoost (tuned) | fare | 1.2726 | 3.0334 | 10.54 % | 0.9500 | — | — |
@@ -59,12 +61,27 @@ models.**
 
 **Accuracy.** Lowest MAE on both targets. Against the trivial baseline that is an 85.7 %
 reduction in fare error and 63.7 % in duration error — the margin that justifies training
-a model at all. Against the decision tree, 13.6 % and 15.6 %. Against the MLP, 41.3 % and
-45.3 %.
+a model at all. Against linear regression, 37.6 % and 35.5 %. Against the decision tree,
+13.6 % and 15.6 %. Against the MLP, 41.3 % and 45.3 %.
 
-**The MLP result is worth stating plainly:** it lost decisively, especially on duration
-(R² 0.5639 against 0.8218). This is the expected outcome for tabular data and is recorded
-here so the option is closed rather than left open.
+**The MLP result deserves stating plainly: it lost to linear regression on both targets.**
+2.1542 against 2.0266 on fare, 6.1504 against 5.2161 on duration — a 64×32 network,
+trained for 80 seconds, beaten by a closed-form least-squares fit that took 10. It is the
+second-worst model in the table, ahead of only the trivial mean.
+
+Two readings are available and the evidence does not separate them. Either the network is
+genuinely the wrong tool for 29 tabular features — the usual result — or it is simply
+under-trained at `max_iter=20`, and its loss curve was still descending when it stopped.
+**T-108 did not run the experiment that would tell them apart.** The honest conclusion is
+narrower than "neural networks lose here": *this* MLP, at *this* budget, lost to a linear
+model. Recorded so the option is closed on evidence rather than on the assumption that a
+network must be the sophisticated choice.
+
+**Linear regression needs an imputer, and that is not a detail.** Zones 264 and 265 have
+no shapefile centroid, so the four coordinate features arrive as NaN on ~1.6 % of rows.
+Trees and LightGBM handle missing values natively; `LinearRegression` raises. It therefore
+runs behind a median `SimpleImputer` inside its Pipeline, which is a small model-capability
+difference the leaderboard does not otherwise show.
 
 **LightGBM over XGBoost** is the narrower call. Accuracy differs by 0.7 % on fare and
 0.5 % on duration — within noise for a practical decision. The real separator is cost:
