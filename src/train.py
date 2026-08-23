@@ -41,7 +41,7 @@ from src.config import (
     TEST_CLEANED_PATH,
     TRAIN_CLEANED_PATH,
 )
-from src.features import NYCFeaturePipeline
+from src.features import NYCFeaturePipeline, load_feature_pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -108,8 +108,7 @@ def train_and_evaluate_baselines(
     pipeline_path = os.path.join(MODELS_DIR, "feature_pipeline.pkl")
     if os.path.exists(pipeline_path):
         logger.info(f"Loading existing feature pipeline from {pipeline_path}...")
-        with open(pipeline_path, "rb") as f:
-            pipeline = pickle.load(f)
+        pipeline = load_feature_pipeline(pipeline_path)
         X_train_feat = pipeline.transform(train_df[ALLOWED_FEATURES])
     else:
         logger.info("Fitting new NYCFeaturePipeline on X_train, y_train...")

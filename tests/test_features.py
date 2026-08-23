@@ -18,7 +18,44 @@ from src.features import (
     TemporalFeatureExtractor,
     calculate_haversine_distance,
     calculate_manhattan_distance,
+    load_feature_pipeline,
 )
+
+
+def test_load_feature_pipeline_round_trips(sample_raw_dataframe, tmp_path):
+    """The happy path: what build_and_save_feature_pipeline writes, this reads."""
+    pipeline = NYCFeaturePipeline()
+    pipeline.fit(sample_raw_dataframe, np.array([[52.0, 25.0], [8.5, 5.0], [65.0, 35.0]]))
+
+    artifact = tmp_path / "feature_pipeline.pkl"
+    with artifact.open("wb") as handle:
+        pickle.dump(pipeline, handle)
+
+    reloaded = load_feature_pipeline(str(artifact))
+    pd.testing.assert_frame_equal(
+        pipeline.transform(sample_raw_dataframe),
+        reloaded.transform(sample_raw_dataframe),
+    )
+
+
+def test_load_feature_pipeline_explains_a_stale_cache(tmp_path):
+    """A cache written under different library versions must fail readably.
+
+    Unpickling one raises from inside pandas internals — the case seen in practice was
+    `StringDtype.__init__() takes from 1 to 2 positional arguments but 3 were given`,
+    which is a pandas 3.x pickle read by pandas 2.x and explains nothing. The error
+    must name the file, say the cache is rebuildable, and give the command.
+    """
+    artifact = tmp_path / "feature_pipeline.pkl"
+    artifact.write_bytes(b"\x80\x05 not a pipeline")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        load_feature_pipeline(str(artifact))
+
+    message = str(excinfo.value)
+    assert str(artifact) in message
+    assert "pandas" in message
+    assert "run_training_pipeline" in message
 
 
 @pytest.fixture

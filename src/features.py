@@ -340,6 +340,37 @@ class NYCFeaturePipeline(BaseEstimator, TransformerMixin):
         return self.fit(X, y).transform(X)
 
 
+def load_feature_pipeline(pipeline_path: str) -> "NYCFeaturePipeline":
+    """Loads the fitted T-105 pipeline, failing usefully when the cache is stale.
+
+    `models/feature_pipeline.pkl` is a local cache: gitignored, produced by whoever ran
+    the pipeline last, on whatever library versions they had. Unpickling it under a
+    different pandas raises from deep inside pandas internals - the observed case is
+
+        TypeError: StringDtype.__init__() takes from 1 to 2 positional arguments
+                   but 3 were given
+
+    which is what a pandas 3.x pickle looks like to pandas 2.x, and says nothing about
+    what to do. The cache cannot be migrated, only rebuilt, so say that instead.
+    """
+    try:
+        with open(pipeline_path, "rb") as handle:
+            return pickle.load(handle)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not load the cached feature pipeline at {pipeline_path}: "
+            f"{type(exc).__name__}: {exc}\n"
+            "This usually means the file was written by a different pandas, numpy or "
+            "scikit-learn than the one now installed - most often an artifact left over "
+            "from before the dependency versions were pinned.\n"
+            "It is a cache, not a source of truth. Delete it and re-run:\n"
+            f"    rm {pipeline_path}\n"
+            "    python -m scripts.run_training_pipeline\n"
+            "If versions were not the cause, check that the installed set matches "
+            "requirements.txt."
+        ) from exc
+
+
 def build_and_save_feature_pipeline(
     train_path: str,
     output_pipeline_path: str = os.path.join(MODELS_DIR, "feature_pipeline.pkl"),

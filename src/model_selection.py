@@ -39,7 +39,7 @@ from src.config import (
     TEST_CLEANED_PATH,
     TRAIN_CLEANED_PATH,
 )
-from src.features import NYCFeaturePipeline
+from src.features import NYCFeaturePipeline, load_feature_pipeline
 from src.train import calculate_metrics, measure_inference_time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -430,8 +430,7 @@ def export_production_model(
     global_fare_mean = 15.15
     feature_names: Optional[List[str]] = None
     if os.path.exists(pipeline_path):
-        with open(pipeline_path, "rb") as f:
-            feat_pipe: NYCFeaturePipeline = pickle.load(f)
+        feat_pipe: NYCFeaturePipeline = load_feature_pipeline(pipeline_path)
         target_encodings = feat_pipe.target_encoder.target_maps_
         global_fare_mean = feat_pipe.target_encoder.global_means_.get("fare", 15.15)
         feature_names = getattr(feat_pipe, "feature_names_", None)
@@ -510,8 +509,7 @@ def run_full_model_selection_pipeline(
     test_df = pd.read_parquet(test_path)
 
     pipeline_path = os.path.join(MODELS_DIR, "feature_pipeline.pkl")
-    with open(pipeline_path, "rb") as f:
-        feature_pipeline: NYCFeaturePipeline = pickle.load(f)
+    feature_pipeline: NYCFeaturePipeline = load_feature_pipeline(pipeline_path)
 
     X_train_feat = feature_pipeline.transform(train_df[ALLOWED_FEATURES])
     X_test_feat = feature_pipeline.transform(test_df[ALLOWED_FEATURES])
