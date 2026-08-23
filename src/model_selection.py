@@ -56,41 +56,132 @@ REQUEST_FEATURES = [
     "trip_distance",
 ]
 
+# docs/T-107-gradient-boosting.md designates this file as "T-109's machine-readable
+# comparison-table input". Until it was wired up, T-109 re-trained with hardcoded
+# hyperparameters and LightGBM's default L2 objective, so the artifact it shipped was
+# not the model its own leaderboard described: MAE 1.42 against the 1.26 on record.
+T107_RESULTS_PATH = os.path.join(MODELS_DIR, "gbm", "t107_results.json")
+WINNING_MODEL_FAMILY = "lightgbm"
+
+# Written by export_comparison_report so the numbers quoted in docs can be checked
+# against a file instead of someone's terminal history.
+MODEL_COMPARISON_PATH = os.path.join(MODELS_DIR, "model_comparison.json")
+
+# Non-negotiable regardless of what the search returned. `objective` must match the
+# loss T-107 selected on (scoring="neg_mean_absolute_error"); training on L2 while
+# reporting L1 metrics is exactly the mismatch this constant exists to prevent.
+# `deterministic` keeps results stable across machines with different core counts.
+LGBM_BASE_KWARGS: Dict[str, Any] = {
+    "objective": "regression_l1",
+    "verbosity": -1,
+    "deterministic": True,
+    "force_col_wise": True,
+    "n_jobs": -1,
+}
+
+# Used only when the T-107 report is missing. Same values the module hardcoded before,
+# kept so the pipeline still runs standalone — but now under the L1 objective.
+FALLBACK_LGBM_PARAMS: Dict[str, Any] = {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+}
+
+
+def load_t107_best_params(
+    results_path: str = T107_RESULTS_PATH,
+    model_family: str = WINNING_MODEL_FAMILY,
+) -> Dict[str, Dict[str, Any]]:
+    """Reads the tuned hyperparameters T-107 selected, keyed by target column.
+
+    Returns an empty mapping when the report is absent, in which case the caller falls
+    back to FALLBACK_LGBM_PARAMS. Regenerate the report with:
+
+        python -m src.gradient_boosting --transformer models/feature_pipeline.pkl
+    """
+    path = Path(results_path)
+    if not path.exists():
+        logger.warning(
+            "T-107 search report not found at %s. Falling back to untuned "
+            "hyperparameters; the exported artifact will NOT be the tuned winner.",
+            path,
+        )
+        return {}
+
+    report = json.loads(path.read_text(encoding="utf-8"))
+    tuned: Dict[str, Dict[str, Any]] = {}
+    for run in report.get("runs", []):
+        if run.get("model_family") != model_family:
+            continue
+        # RandomizedSearchCV prefixes parameters with the pipeline step name
+        # ("model__num_leaves") when a transformer is part of the searched estimator.
+        params = {
+            key.split("__", 1)[-1]: value
+            for key, value in (run.get("best_params") or {}).items()
+        }
+        tuned[run["target"]] = params
+
+    if tuned:
+        logger.info(
+            "Loaded T-107 tuned hyperparameters for %s: %s",
+            model_family,
+            sorted(tuned),
+        )
+    return tuned
+
+
+def build_winning_regressor(
+    target: str,
+    tuned_params: Dict[str, Dict[str, Any]],
+    random_seed: int = RANDOM_SEED,
+) -> LGBMRegressor:
+    """Builds the production regressor for one target, preferring T-107's search."""
+    if target in tuned_params:
+        params, source = dict(tuned_params[target]), "T-107 search"
+    else:
+        params, source = dict(FALLBACK_LGBM_PARAMS), "untuned fallback"
+
+    # Base kwargs win on conflict: the objective and determinism flags are part of the
+    # selection contract, not something a search result may override.
+    kwargs = {**params, **LGBM_BASE_KWARGS, "random_state": random_seed}
+    logger.info("LightGBM config for %s (%s): %s", target, source, kwargs)
+    return LGBMRegressor(**kwargs)
+
 
 def train_winning_lightgbm_models(
     X_train: pd.DataFrame,
     y_train_fare: np.ndarray,
     y_train_dur: np.ndarray,
     random_seed: int = RANDOM_SEED,
-) -> Tuple[LGBMRegressor, LGBMRegressor]:
-    """Trains optimal LightGBM models for fare_amount and duration_minutes."""
+    tuned_params: Optional[Dict[str, Dict[str, Any]]] = None,
+    t107_results_path: str = T107_RESULTS_PATH,
+) -> Tuple[LGBMRegressor, LGBMRegressor, Dict[str, float]]:
+    """Refits the winning LightGBM models for fare_amount and duration_minutes.
+
+    Uses the hyperparameters T-107 selected when its report is available, so the
+    exported artifact is the model the leaderboard describes rather than a separate
+    hand-configured one. Returns the two fitted models plus their training times.
+    """
+    if tuned_params is None:
+        tuned_params = load_t107_best_params(t107_results_path)
+
+    train_times: Dict[str, float] = {}
+
     logger.info("Training winning LightGBM model for fare_amount...")
-    lgb_fare = LGBMRegressor(
-        n_estimators=300,
-        learning_rate=0.05,
-        num_leaves=63,
-        random_state=random_seed,
-        verbosity=-1,
-        n_jobs=-1,
-    )
+    lgb_fare = build_winning_regressor("fare_amount", tuned_params, random_seed)
     t0 = time.time()
     lgb_fare.fit(X_train, y_train_fare)
-    logger.info(f"Fitted LightGBM fare model in {time.time() - t0:.2f}s")
+    train_times["fare_amount"] = round(time.time() - t0, 2)
+    logger.info(f"Fitted LightGBM fare model in {train_times['fare_amount']:.2f}s")
 
     logger.info("Training winning LightGBM model for duration_minutes...")
-    lgb_dur = LGBMRegressor(
-        n_estimators=300,
-        learning_rate=0.05,
-        num_leaves=63,
-        random_state=random_seed,
-        verbosity=-1,
-        n_jobs=-1,
-    )
+    lgb_dur = build_winning_regressor("duration_minutes", tuned_params, random_seed)
     t0 = time.time()
     lgb_dur.fit(X_train, y_train_dur)
-    logger.info(f"Fitted LightGBM duration model in {time.time() - t0:.2f}s")
+    train_times["duration_minutes"] = round(time.time() - t0, 2)
+    logger.info(f"Fitted LightGBM duration model in {train_times['duration_minutes']:.2f}s")
 
-    return lgb_fare, lgb_dur
+    return lgb_fare, lgb_dur, train_times
 
 
 def compute_feature_importances(
@@ -203,6 +294,78 @@ def conduct_residual_analysis(
         "by_distance": by_distance,
         "by_ratecode": by_ratecode,
     }
+
+
+def _frame_to_records(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """DataFrame -> JSON-safe records, with the index kept as a column.
+
+    Routes through pandas' own JSON writer so NaN becomes null and numpy scalars and
+    Categorical bucket labels are coerced properly.
+    """
+    return json.loads(df.reset_index().to_json(orient="records"))
+
+
+def export_comparison_report(
+    fare_metrics: Dict[str, float],
+    duration_metrics: Dict[str, float],
+    train_times: Dict[str, float],
+    latencies_ms: Dict[str, float],
+    feature_importances: Dict[str, pd.DataFrame],
+    residual_analysis: Dict[str, pd.DataFrame],
+    tuned_params: Dict[str, Dict[str, Any]],
+    row_counts: Dict[str, int],
+    output_path: str = MODEL_COMPARISON_PATH,
+    version: str = "1.0.0-lightgbm",
+) -> Dict[str, Any]:
+    """Writes every number this pipeline computes to a file.
+
+    These results used to be returned in memory only, which meant the figures quoted in
+    docs/T-109-model-selection.md could not be checked against anything. Persisting them
+    makes the docs verifiable and gives the dashboard's comparison table a real input.
+    """
+    import lightgbm
+
+    report: Dict[str, Any] = {
+        "ticket": "T-109",
+        "version": version,
+        "winning_family": WINNING_MODEL_FAMILY,
+        "hyperparameter_source": (
+            "T-107 RandomizedSearchCV" if tuned_params else "untuned fallback"
+        ),
+        "objective": LGBM_BASE_KWARGS["objective"],
+        "random_seed": RANDOM_SEED,
+        "library_versions": {
+            "lightgbm": lightgbm.__version__,
+            "pandas": pd.__version__,
+            "numpy": np.__version__,
+        },
+        "row_counts": row_counts,
+        "best_params": tuned_params or {"__fallback__": FALLBACK_LGBM_PARAMS},
+        "metrics": {
+            "fare_amount": {
+                **fare_metrics,
+                "train_time_sec": train_times.get("fare_amount"),
+                "inference_latency_ms": latencies_ms.get("fare_amount"),
+            },
+            "duration_minutes": {
+                **duration_metrics,
+                "train_time_sec": train_times.get("duration_minutes"),
+                "inference_latency_ms": latencies_ms.get("duration_minutes"),
+            },
+        },
+        "feature_importances": {
+            target: _frame_to_records(df) for target, df in feature_importances.items()
+        },
+        "residual_analysis": {
+            slice_name: _frame_to_records(df)
+            for slice_name, df in residual_analysis.items()
+        },
+    }
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    logger.info(f"Saved model comparison report to {output_path}")
+    return report
 
 
 def export_production_model(
@@ -332,9 +495,14 @@ def run_full_model_selection_pipeline(
 
     feature_names = list(X_train_feat.columns)
 
-    # 1. Train winning LightGBM models
-    lgb_fare, lgb_dur = train_winning_lightgbm_models(
-        X_train_feat, y_train_fare, y_train_dur, random_seed=RANDOM_SEED
+    # 1. Refit the winning LightGBM models using T-107's selected hyperparameters
+    tuned_params = load_t107_best_params()
+    lgb_fare, lgb_dur, train_times = train_winning_lightgbm_models(
+        X_train_feat,
+        y_train_fare,
+        y_train_dur,
+        random_seed=RANDOM_SEED,
+        tuned_params=tuned_params,
     )
 
     # 2. Evaluate on unseen temporal test set
@@ -359,7 +527,19 @@ def run_full_model_selection_pipeline(
         y_test_fare, pred_fare, y_test_dur, pred_dur, test_df, centroids_path=centroids_path
     )
 
-    # 5. Export Self-Contained Production Bundle
+    # 5. Persist every number computed above, so the docs can cite a file
+    comparison_report = export_comparison_report(
+        fare_metrics=fare_metrics,
+        duration_metrics=dur_metrics,
+        train_times=train_times,
+        latencies_ms={"fare_amount": lat_fare, "duration_minutes": lat_dur},
+        feature_importances=feat_imp,
+        residual_analysis=residual_analysis,
+        tuned_params=tuned_params,
+        row_counts={"train": len(train_df), "test": len(test_df)},
+    )
+
+    # 6. Export Self-Contained Production Bundle
     bundle = export_production_model(
         lgb_fare=lgb_fare,
         lgb_dur=lgb_dur,
@@ -369,7 +549,7 @@ def run_full_model_selection_pipeline(
         version="1.0.0-lightgbm",
     )
 
-    # 6. Verify Isolation Acceptance Test
+    # 7. Verify Isolation Acceptance Test
     isolation_passed = verify_model_isolation(output_model_path)
     assert isolation_passed, "Model isolation acceptance test must pass!"
 
@@ -378,6 +558,8 @@ def run_full_model_selection_pipeline(
         "duration_metrics": dur_metrics,
         "feature_importances": feat_imp,
         "residual_analysis": residual_analysis,
+        "comparison_report": comparison_report,
+        "hyperparameter_source": comparison_report["hyperparameter_source"],
         "model_bundle": bundle,
         "isolation_verified": isolation_passed,
     }
