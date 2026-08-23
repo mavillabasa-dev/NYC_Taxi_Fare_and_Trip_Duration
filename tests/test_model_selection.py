@@ -43,11 +43,10 @@ def sample_request_df() -> pd.DataFrame:
     )
 
 
+@pytest.mark.requires_model
 def test_production_model_bundle_keys():
     """Verify that models/model.pkl contains all required bundle keys and request feature contracts."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     with open(model_path, "rb") as f:
         bundle = pickle.load(f)
@@ -59,11 +58,10 @@ def test_production_model_bundle_keys():
     assert hasattr(bundle["model"], "predict")
 
 
+@pytest.mark.requires_model
 def test_self_contained_model_prediction_shape(sample_request_df):
     """Test that SelfContainedTaxiModel transforms raw features and returns 2D (N, 2) predictions."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     with open(model_path, "rb") as f:
         bundle = pickle.load(f)
@@ -82,16 +80,16 @@ def test_self_contained_model_prediction_shape(sample_request_df):
     assert (dur_preds > 0).all()
 
 
+@pytest.mark.requires_model
 def test_model_isolation_acceptance_test():
     """Acceptance test: Unpickling and predicting in a subprocess where src/ is absent from sys.path."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     passed = verify_model_isolation(model_path)
     assert passed is True
 
 
+@pytest.mark.requires_model
 def test_real_model_api_serving_endpoint(sample_request_df):
     """Integration test: Test FastAPI app loaded with the real production model artifact."""
     import main

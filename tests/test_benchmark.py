@@ -13,17 +13,23 @@ from scripts.benchmark_api import (
 )
 
 
+pytestmark = pytest.mark.requires_model
+
+
 @pytest.fixture
 def repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
 def test_predict_fast_parity_with_dataframe_predict(repo_root):
-    """Assert that predict_fast produces identical predictions to standard DataFrame predict."""
+    """Assert that predict_fast produces identical predictions to standard DataFrame predict.
+
+    Path-independent parity is covered by tests/test_predictor_parity.py, which needs no
+    artifact. This one adds the real bundle's centroids and target encodings on top.
+    """
     import pickle
 
     model_path = repo_root / "models" / "model.pkl"
-    assert model_path.exists(), "models/model.pkl must exist"
 
     with open(model_path, "rb") as f:
         bundle = pickle.load(f)

@@ -1,4 +1,10 @@
-.PHONY: build run test down
+.PHONY: build run test down install fixture
+
+install:
+	pip install -r requirements-dev.txt
+
+fixture:
+	python scripts/dev_fixture_model.py
 
 build:
 	docker compose build

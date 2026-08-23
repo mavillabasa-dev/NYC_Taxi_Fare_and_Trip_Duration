@@ -16,4 +16,3 @@
 pytest==9.1.1
 httpx==0.28.1        # FastAPI TestClient dependency
 PyYAML==6.0.3        # tests/test_docker_config.py parses docker-compose.yml
-cloudpickle==3.1.2   # scripts/dev_fixture_model.py serialises the dev artifact
