@@ -70,6 +70,36 @@ body{
     linear-gradient(178deg,#FFFFFF 30%,#FDF9F1 100%);
 }
 
+/* ---------- background art ----------
+   Taxi and street motifs behind the slides. Decorative only: aria-hidden,
+   no pointer events, and faint enough to read as paper texture rather than
+   as content. The street grid and the skyline run under every slide; the
+   rest are accents a slide opts into through its data-bg attribute, which
+   the deck mirrors onto itself so CSS can switch them. Cards and code
+   blocks are opaque, so a motif that lands behind one simply disappears. */
+#bgart{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+#bgart .m{position:absolute;display:block;opacity:0;transition:opacity .8s cubic-bezier(.22,.68,.24,1)}
+
+#bgart .m-grid{left:0;top:0;width:1280px;height:720px;opacity:.05}
+#bgart .m-city{left:0;bottom:0;width:1280px;height:158px;opacity:.055}
+#deck[data-bg~="hero"] .m-city{opacity:.1}
+
+#bgart .m-taxi{right:58px;bottom:30px;width:308px;height:124px}
+#bgart .m-route{right:-24px;top:14px;width:430px;height:214px}
+#bgart .m-bridge{right:-30px;top:10px;width:473px;height:200px}
+#bgart .m-check{right:0;top:30px;width:468px;height:26px}
+#bgart .m-signal{right:82px;top:24px;width:88px;height:232px}
+
+#deck[data-bg~="taxi"] .m-taxi{opacity:.075}
+#deck[data-bg~="route"] .m-route{opacity:.14}
+#deck[data-bg~="bridge"] .m-bridge{opacity:.085}
+#deck[data-bg~="check"] .m-check{opacity:.16}
+#deck[data-bg~="signal"] .m-signal{opacity:.08}
+
+@media (prefers-reduced-motion:reduce){
+  #bgart .m{transition:none}
+}
+
 /* ---------- slides ---------- */
 .slide{
   position:absolute;inset:0;z-index:1;
@@ -241,9 +271,129 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 
 <main id="stage">
 <div id="deck">
+<!-- ============================================================
+     Background art. None of it carries meaning: it is a city to
+     stand the slides in. The street grid and the skyline are under
+     all eighteen; a slide asks for an accent with data-bg.
+     ============================================================ -->
+<div id="bgart" aria-hidden="true">
+
+  <!-- Manhattan's street grid, tilted the same 29 degrees the real one is,
+       faded out through the middle so it never sits under running text -->
+  <svg class="m m-grid" viewBox="0 0 1280 720" width="1280" height="720">
+    <defs>
+      <pattern id="bgStreets" width="170" height="38" patternUnits="userSpaceOnUse" patternTransform="rotate(-29 640 360)">
+        <path d="M0,0 H170" fill="none" stroke="#1A1512" stroke-width="1"/>
+        <path d="M0,0 V38" fill="none" stroke="#1A1512" stroke-width="1.9"/>
+      </pattern>
+      <radialGradient id="bgGridFalloff" cx=".5" cy=".52" r=".8">
+        <stop offset="0" stop-color="#000000"/>
+        <stop offset=".5" stop-color="#2B2B2B"/>
+        <stop offset="1" stop-color="#FFFFFF"/>
+      </radialGradient>
+      <mask id="bgGridMask"><rect width="1280" height="720" fill="url(#bgGridFalloff)"/></mask>
+    </defs>
+    <rect width="1280" height="720" fill="url(#bgStreets)" mask="url(#bgGridMask)"/>
+  </svg>
+
+  <!-- skyline: stepped silhouette, four rooftop water tanks, five crowns.
+       The fill fades upward so the roofline dissolves instead of ending -->
+  <svg class="m m-city" viewBox="0 0 1280 158" width="1280" height="158">
+    <defs>
+      <linearGradient id="bgCityFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1A1512" stop-opacity=".2"/>
+        <stop offset=".62" stop-color="#1A1512" stop-opacity=".74"/>
+        <stop offset="1" stop-color="#1A1512" stop-opacity="1"/>
+      </linearGradient>
+    </defs>
+    <g fill="url(#bgCityFade)">
+      <path d="M0,158 V104 H46 V88 H86 V118 H120 V70 H150 V96 H196 V126 H230 V82 H272 V108 H300 V64 H352 V112 H392 V92 H436 V124 H470 V76 H520 V100 H556 V60 H590 V116 H640 V86 H690 V106 H726 V68 H772 V120 H812 V94 H860 V110 H900 V72 H952 V100 H1000 V128 H1042 V84 H1090 V112 H1130 V66 H1180 V98 H1226 V118 H1280 V158 Z"/>
+      <path d="M134,70 L135.5,36 L137,70 Z M316,64 V44 H336 V64 Z M325,44 L326.5,14 L328,44 Z M562,60 L573,32 L584,60 Z M736,68 V56 H744 V48 H754 V56 H762 V68 Z M748,48 L749.5,22 L751,48 Z M1153,66 L1154.5,34 L1156,66 Z"/>
+      <path d="M204,126 V118 H205.5 V126 Z M214.5,126 V118 H216 V126 Z M203,118 V106 H217 V118 Z M202,106 L210,99 L218,106 Z M446,124 V116 H447.5 V124 Z M456.5,124 V116 H458 V124 Z M445,116 V104 H459 V116 Z M444,104 L452,97 L460,104 Z M870,110 V102 H871.5 V110 Z M880.5,110 V102 H882 V110 Z M869,102 V90 H883 V102 Z M868,90 L876,83 L884,90 Z M1014,128 V120 H1015.5 V128 Z M1024.5,128 V120 H1026 V128 Z M1013,120 V108 H1027 V120 Z M1012,108 L1020,101 L1028,108 Z"/>
+    </g>
+  </svg>
+
+  <!-- a cab, side on: roof light, checker stripe, two windows cut out -->
+  <svg class="m m-taxi" viewBox="0 0 308 124" width="308" height="124">
+    <path fill="#1A1512" fill-rule="evenodd" d="M12,98 V76 C12,68 17,63 26,61 L92,58 L124,30 L206,28 L240,58 L280,62 C290,63 296,68 296,76 L296,98 Z M133,35 H152 V51 H114 Z M158,35 H207 L223,51 H158 Z M52,98 Q52,74 74,74 Q96,74 96,98 Z M210,98 Q210,74 232,74 Q254,74 254,98 Z"/>
+    <rect x="150" y="18" width="32" height="11" rx="3.5" fill="#1A1512"/>
+    <g fill="#C4762A">
+      <rect x="120" y="62" width="11" height="11"/>
+      <rect x="142" y="62" width="11" height="11"/>
+      <rect x="164" y="62" width="11" height="11"/>
+      <rect x="186" y="62" width="11" height="11"/>
+    </g>
+    <g fill="none" stroke="#1A1512" stroke-width="4.5">
+      <circle cx="74" cy="100" r="16"/>
+      <circle cx="232" cy="100" r="16"/>
+    </g>
+  </svg>
+
+  <!-- pickup to drop-off: the two markers from slide 2, one ride apart -->
+  <svg class="m m-route" viewBox="0 0 430 214" width="430" height="214">
+    <path d="M42,170 C108,66 224,190 314,104" fill="none" stroke="#C4762A" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="1 13"/>
+    <circle cx="42" cy="170" r="8" fill="#C4762A"/>
+    <circle cx="42" cy="170" r="15.5" fill="none" stroke="#C4762A" stroke-width="2.2"/>
+    <path d="M316,92 C316,92 331,71 331,59 C331,50.7 324.3,44 316,44 C307.7,44 301,50.7 301,59 C301,71 316,92 316,92 Z" fill="none" stroke="#C4762A" stroke-width="2.6"/>
+    <circle cx="316" cy="58" r="4.5" fill="#C4762A"/>
+  </svg>
+
+  <!-- the bridge: cable, suspenders, gothic arches through the towers -->
+  <svg class="m m-bridge" viewBox="0 0 520 220" width="520" height="220">
+    <g fill="none" stroke="#1A1512" stroke-linecap="round">
+      <path d="M0,170 H520" stroke-width="2.6"/>
+      <path d="M0,177 H520" stroke-width="1.1"/>
+      <path d="M6,88 C56,88 106,64 140,42 C186,92 214,116 260,116 C306,116 334,92 380,42 C414,64 464,88 514,88" stroke-width="2.2"/>
+      <path d="M43,84 V170 M79,73 V170 M112,59 V170 M160,65 V170 M180,83 V170 M200,98 V170 M220,108 V170 M240,114 V170 M280,114 V170 M300,108 V170 M320,98 V170 M340,83 V170 M360,65 V170 M408,59 V170 M441,73 V170 M477,84 V170" stroke-width="1"/>
+      <path d="M40,196 H180 M240,206 H400 M300,190 H470" stroke-width="1.4"/>
+    </g>
+    <g fill="#1A1512" fill-rule="evenodd">
+      <path d="M122,170 V44 Q140,29 158,44 V170 Z M126.5,170 V122 Q126.5,106 132.5,100 Q138.5,106 138.5,122 V170 Z M141.5,170 V122 Q141.5,106 147.5,100 Q153.5,106 153.5,122 V170 Z"/>
+      <path d="M362,170 V44 Q380,29 398,44 V170 Z M366.5,170 V122 Q366.5,106 372.5,100 Q378.5,106 378.5,122 V170 Z M381.5,170 V122 Q381.5,106 387.5,100 Q393.5,106 393.5,122 V170 Z"/>
+    </g>
+  </svg>
+
+  <!-- the checker band off a cab door, dissolving toward the slide -->
+  <svg class="m m-check" viewBox="0 0 468 26" width="468" height="26">
+    <defs>
+      <pattern id="bgCheck" width="26" height="26" patternUnits="userSpaceOnUse">
+        <rect width="13" height="13" fill="#C4762A"/>
+        <rect x="13" y="13" width="13" height="13" fill="#C4762A"/>
+      </pattern>
+      <linearGradient id="bgCheckFalloff" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000000"/>
+        <stop offset=".55" stop-color="#555555"/>
+        <stop offset="1" stop-color="#FFFFFF"/>
+      </linearGradient>
+      <mask id="bgCheckMask"><rect width="468" height="26" fill="url(#bgCheckFalloff)"/></mask>
+    </defs>
+    <rect width="468" height="26" fill="url(#bgCheck)" mask="url(#bgCheckMask)"/>
+  </svg>
+
+  <!-- a signal on its pole, bottom lamp lit. The pole dissolves rather than
+       ending, the same trick the skyline uses at its roofline -->
+  <svg class="m m-signal" viewBox="0 0 88 232" width="88" height="232">
+    <defs>
+      <linearGradient id="bgPoleFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1A1512" stop-opacity="1"/>
+        <stop offset=".55" stop-color="#1A1512" stop-opacity=".92"/>
+        <stop offset="1" stop-color="#1A1512" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke="#1A1512">
+      <rect x="20" y="6" width="48" height="102" rx="11" stroke-width="3"/>
+      <circle cx="44" cy="27" r="10" stroke-width="2.4"/>
+      <circle cx="44" cy="57" r="10" stroke-width="2.4"/>
+    </g>
+    <circle cx="44" cy="87" r="10" fill="#C4762A"/>
+    <rect x="41" y="100" width="6" height="132" fill="url(#bgPoleFade)"/>
+  </svg>
+
+</div>
+
 
 <!-- ============ 01 · TITLE · Keyneth · 0:40 ============ -->
-<section class="slide" data-title="How much? How long?" data-who="Keyneth Lara" data-time="0:40">
+<section class="slide" data-bg="hero taxi" data-title="How much? How long?" data-who="Keyneth Lara" data-time="0:40">
   <div class="stack" style="gap:26px">
     <p class="eyebrow" data-r style="--d:.05s">Pre-demo · NYC Taxi fare &amp; duration prediction</p>
     <h1 class="h1" data-r style="--d:.14s">How much?<br><span class="grad">How long?</span></h1>
@@ -257,7 +407,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 02 · THE PROBLEM · Keyneth · 0:50 ============ -->
-<section class="slide" data-title="The meter answers too late" data-who="Keyneth Lara" data-time="0:50">
+<section class="slide" data-bg="route" data-title="The meter answers too late" data-who="Keyneth Lara" data-time="0:50">
   <h2 class="h2" data-r style="max-width:16ch">The meter answers <span class="grad">too late</span>.</h2>
 
   <div style="margin-top:78px;position:relative" data-r>
@@ -284,7 +434,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 03 · WHAT WE BUILT · Keyneth · 1:30 ============ -->
-<section class="slide" data-title="Four pieces, one system" data-who="Keyneth Lara" data-time="1:30">
+<section class="slide" data-bg="check" data-title="Four pieces, one system" data-who="Keyneth Lara" data-time="1:30">
   <h2 class="h2" data-r>Four pieces, one system.</h2>
 
   <div class="grid4" style="margin-top:54px">
@@ -412,7 +562,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 05 · FEATURE CONTRACT · William · 1:10 ============ -->
-<section class="slide" data-title="Only what is known at pickup" data-who="William Vera" data-time="1:10">
+<section class="slide" data-bg="signal" data-title="Only what is known at pickup" data-who="William Vera" data-time="1:10">
   <h2 class="h2" data-r style="font-size:52px;max-width:25ch">The model only knows what a dispatcher knows.</h2>
 
   <div class="grid2" style="margin-top:56px;grid-template-columns:1.06fr 1fr;gap:64px">
@@ -450,7 +600,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 06 · ARTIFACT CONTRACT · William · 0:40 ============ -->
-<section class="slide" data-title="Proven in isolation" data-who="William Vera" data-time="0:40">
+<section class="slide" data-bg="check" data-title="Proven in isolation" data-who="William Vera" data-time="0:40">
   <div style="display:grid;grid-template-columns:1fr .92fr;gap:78px;align-items:center">
     <div data-r>
       <h2 class="h2" style="font-size:54px">It loads with the training code <span class="grad">deleted</span>.</h2>
@@ -526,7 +676,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 08 · HEADLINE RESULTS · Marcos · 1:05 ============ -->
-<section class="slide" data-title="What the model achieved" data-who="Marcos Villabasa" data-time="1:05">
+<section class="slide" data-bg="bridge" data-title="What the model achieved" data-who="Marcos Villabasa" data-time="1:05">
   <p class="eyebrow" data-r>Held-out week · 899,623 trips the model never saw</p>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:56px">
@@ -549,7 +699,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 09 · LATENCY · Marcos · 0:45 ============ -->
-<section class="slide" data-title="Fast enough to quote live" data-who="Marcos Villabasa" data-time="0:45">
+<section class="slide" data-bg="taxi" data-title="Fast enough to quote live" data-who="Marcos Villabasa" data-time="0:45">
   <h2 class="h2" data-r>Fast enough to quote <span class="grad">live</span>.</h2>
 
   <div data-r style="--d:.14s;margin-top:66px;max-width:880px">
@@ -573,7 +723,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 10 · DEMO INTRO · Mauricio · 0:50 ============ -->
-<section class="slide" data-title="Live demo — what to watch" data-who="Mauricio Mora" data-time="0:50">
+<section class="slide" data-bg="route" data-title="Live demo — what to watch" data-who="Mauricio Mora" data-time="0:50">
   <div style="display:grid;grid-template-columns:.86fr 1fr;gap:80px;align-items:center">
     <div data-r>
       <p class="eyebrow" style="margin-bottom:22px">Everything so far is a claim</p>
@@ -603,7 +753,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 11 · DEMO 01 /health · Mauricio · 1:00 ============ -->
-<section class="slide" data-title="Demo 01 — the model is really there" data-who="Mauricio Mora" data-time="1:00">
+<section class="slide" data-bg="signal" data-title="Demo 01 — the model is really there" data-who="Mauricio Mora" data-time="1:00">
   <div style="display:grid;grid-template-columns:1fr 1.04fr;gap:76px;align-items:center">
     <div data-r>
       <p class="mono grad" style="font-size:26px;font-weight:500;margin-bottom:18px">01</p>
@@ -682,7 +832,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 13 · DEMO 03 · validation · Mauricio · 0:45 ============ -->
-<section class="slide" data-title="Demo 03 — wrong input is refused" data-who="Mauricio Mora" data-time="0:45">
+<section class="slide" data-bg="taxi" data-title="Demo 03 — wrong input is refused" data-who="Mauricio Mora" data-time="0:45">
   <div style="display:grid;grid-template-columns:1fr 1.04fr;gap:76px;align-items:center">
     <div data-r>
       <p class="mono grad" style="font-size:26px;font-weight:500;margin-bottom:18px">03</p>
@@ -752,7 +902,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 15 · DEMO 05 · choropleth · Néstor · 1:10 ============ -->
-<section class="slide" data-title="Demo 05 — one pickup, the whole city" data-who="Néstor Mamani" data-time="1:10">
+<section class="slide" data-bg="check" data-title="Demo 05 — one pickup, the whole city" data-who="Néstor Mamani" data-time="1:10">
   <div style="display:grid;grid-template-columns:1fr .82fr;gap:64px;align-items:center">
     <div data-r>
       <p class="mono grad" style="font-size:26px;font-weight:500;margin-bottom:14px">05</p>
@@ -769,7 +919,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 16 · WHAT IT PROVED · Néstor · 0:50 ============ -->
-<section class="slide" data-title="What the demo proved" data-who="Néstor Mamani" data-time="0:50">
+<section class="slide" data-bg="bridge" data-title="What the demo proved" data-who="Néstor Mamani" data-time="0:50">
   <h2 class="h2" data-r>What that proved.</h2>
 
   <div style="margin-top:60px;display:flex;flex-direction:column;gap:34px">
@@ -791,7 +941,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </section>
 
 <!-- ============ 17 · TAKEAWAYS · Keyneth · 1:00 ============ -->
-<section class="slide" data-title="Key takeaways" data-who="Keyneth Lara" data-time="1:00">
+<section class="slide" data-bg="check" data-title="Key takeaways" data-who="Keyneth Lara" data-time="1:00">
   <h2 class="h2" data-r>Three things to take away.</h2>
 
   <div class="grid3" style="margin-top:58px">
@@ -813,30 +963,8 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
   </div>
 </section>
 
-<!-- ============ 18 · NEXT STEPS · Keyneth · 0:45 ============ -->
-<section class="slide" data-title="Before the official demo" data-who="Keyneth Lara" data-time="0:45">
-  <h2 class="h2" data-r style="font-size:52px">Before the official demo.</h2>
-
-  <div style="margin-top:58px;display:flex;flex-direction:column;gap:26px">
-    <div data-r style="--d:.1s;display:flex;gap:26px;align-items:baseline">
-      <span class="mono" style="font-size:16px;color:var(--gold-ink);font-weight:500;width:22px">01</span>
-      <span style="font-size:24px;line-height:1.35;max-width:56ch">Replace the dashboard's straight-line distance with a routing estimate — it biases the fare low today.</span>
-    </div>
-    <div data-r style="--d:.2s;display:flex;gap:26px;align-items:baseline">
-      <span class="mono" style="font-size:16px;color:var(--gold-ink);font-weight:500;width:22px">02</span>
-      <span style="font-size:24px;line-height:1.35;max-width:56ch">Resolve <span class="mono">VendorID</span>: the model trains on it, the API does not send it. Expose it or drop it.</span>
-    </div>
-    <div data-r style="--d:.3s;display:flex;gap:26px;align-items:baseline">
-      <span class="mono" style="font-size:16px;color:var(--gold-ink);font-weight:500;width:22px">03</span>
-      <span style="font-size:24px;line-height:1.35;max-width:56ch">Re-run the benchmark over real HTTP before we quote the latency again.</span>
-    </div>
-  </div>
-
-  <p class="cue" data-r style="--d:.42s;margin-top:62px">This is what we would like your feedback on</p>
-</section>
-
-<!-- ============ 19 · CLOSE · Keyneth · 0:10 ============ -->
-<section class="slide" data-title="Thank you" data-who="Keyneth Lara" data-time="0:10">
+<!-- ============ 18 · CLOSE · Keyneth · 0:10 ============ -->
+<section class="slide" data-bg="hero taxi check" data-title="Thank you" data-who="Keyneth Lara" data-time="0:10">
   <div class="stack" style="gap:26px">
     <h1 class="h1" data-r>How much?<br><span class="grad">How long?</span></h1>
     <div class="rule" data-r style="--d:.2s"></div>
@@ -852,19 +980,19 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 </main>
 
 <div class="chrome" id="progress"><i></i></div>
-<div class="chrome" id="counter">01 / 19</div>
+<div class="chrome" id="counter">01 / 18</div>
 <button class="chrome" id="modeBtn" type="button">Script</button>
 
 <section id="scriptview">
 <div class="doc">
 
   <h1>Speaking script</h1>
-  <p class="sub">Pre-demo · NYC Taxi fare &amp; duration prediction. Nineteen slides, five presenters, twenty minutes including the live demo. Times assume a calm pace of about 135 words per minute; the demo slides carry fewer words on purpose, because the screen is doing the talking.</p>
+  <p class="sub">Pre-demo · NYC Taxi fare &amp; duration prediction. Eighteen slides, five presenters, nineteen minutes including the live demo. Times assume a calm pace of about 135 words per minute; the demo slides carry fewer words on purpose, because the screen is doing the talking.</p>
   <p class="keys">Press <kbd>S</kbd> to return to the slides · <kbd>→</kbd> <kbd>←</kbd> to advance · <kbd>F</kbd> for fullscreen · <kbd>Ctrl</kbd>+<kbd>P</kbd> prints this script</p>
 
   <h2 class="sec">Who speaks, and for how long</h2>
   <div class="sum">
-    <div><b>Keyneth Lara</b><i>4:55</i><span>Opens and closes · slides 1–3, 17–19</span></div>
+    <div><b>Keyneth Lara</b><i>4:10</i><span>Opens and closes · slides 1–3, 17–18</span></div>
     <div><b>William Vera</b><i>3:20</i><span>Architecture · slides 4–6</span></div>
     <div><b>Marcos Villabasa</b><i>3:10</i><span>Model and results · slides 7–9</span></div>
     <div><b>Mauricio Mora</b><i>4:35</i><span>Live demo, the API · slides 10–13</span></div>
@@ -892,9 +1020,8 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
       <tr class="demo" data-go="15"><td class="n">15</td><td>Demo 05 — one pickup, the whole city</td><td class="w">Néstor Mamani</td><td class="t">1:10</td></tr>
       <tr class="demo" data-go="16"><td class="n">16</td><td>What the demo proved</td><td class="w">Néstor Mamani</td><td class="t">0:50</td></tr>
       <tr data-go="17"><td class="n">17</td><td>Key takeaways</td><td class="w">Keyneth Lara</td><td class="t">1:00</td></tr>
-      <tr data-go="18"><td class="n">18</td><td>Before the official demo</td><td class="w">Keyneth Lara</td><td class="t">0:45</td></tr>
-      <tr data-go="19"><td class="n">19</td><td>Thank you</td><td class="w">Keyneth Lara</td><td class="t">0:10</td></tr>
-      <tr class="tot"><td class="n"></td><td>Total — demo occupies 8:35 of it</td><td class="w"></td><td class="t">20:00</td></tr>
+      <tr data-go="18"><td class="n">18</td><td>Thank you</td><td class="w">Keyneth Lara</td><td class="t">0:10</td></tr>
+      <tr class="tot"><td class="n"></td><td>Total — demo occupies 8:35 of it</td><td class="w"></td><td class="t">19:15</td></tr>
     </tbody>
   </table>
 
@@ -1240,29 +1367,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
 
   <!-- 18 -->
   <article class="sb" id="sb18">
-    <div class="hd"><span class="n">18</span><h3>Before the official demo</h3></div>
-    <div class="tags"><span class="tag who">Presenter: Keyneth Lara</span><span class="tag tm">0:45</span></div>
-    <div class="lang">
-      <h4>English Script</h4>
-      <p>Three things we are refining before the official demo.</p>
-      <p>The dashboard estimates distance in a straight line, and a straight line is always shorter than the road — so it biases the fare low. We are replacing it with a routing estimate.</p>
-      <p>The vendor identifier is in the model but not in the API, so serving pins it to a constant. We will either expose it or drop it from the feature set.</p>
-      <p>And our benchmark runs in-process. We want those numbers over real HTTP before we quote them again.</p>
-      <p>That is what we would like your feedback on today.</p>
-    </div>
-    <div class="lang es">
-      <h4>Spanish Script</h4>
-      <p>Tres cosas que estamos afinando antes de la demo oficial.</p>
-      <p>El dashboard estima la distancia en línea recta, y la línea recta siempre es más corta que la calle, así que sesga la tarifa hacia abajo. La vamos a reemplazar por una estimación de ruta.</p>
-      <p>El identificador de proveedor está en el modelo pero no en la API, así que al servir queda fijo en una constante. O lo exponemos, o lo sacamos del conjunto de variables.</p>
-      <p>Y nuestro benchmark corre dentro del mismo proceso. Queremos esos números sobre HTTP real antes de volver a citarlos.</p>
-      <p>Sobre eso nos gustaría recibir su retroalimentación hoy.</p>
-    </div>
-  </article>
-
-  <!-- 19 -->
-  <article class="sb" id="sb19">
-    <div class="hd"><span class="n">19</span><h3>Thank you</h3></div>
+    <div class="hd"><span class="n">18</span><h3>Thank you</h3></div>
     <div class="tags"><span class="tag who">Presenter: Keyneth Lara</span><span class="tag tm">0:10</span></div>
     <div class="lang">
       <h4>English Script</h4>
@@ -1303,6 +1408,7 @@ article.sb .tags{display:flex;gap:8px;margin:15px 0 24px;flex-wrap:wrap}
   function show(i, silent){
     cur = Math.max(0, Math.min(total - 1, i));
     slides.forEach(function(s, k){ s.classList.toggle('on', k === cur); });
+    deck.setAttribute('data-bg', slides[cur].getAttribute('data-bg') || '');
     bar.style.width = ((cur + 1) / total * 100) + '%';
     counter.textContent = pad(cur + 1) + ' / ' + total;
     if (!silent) {
