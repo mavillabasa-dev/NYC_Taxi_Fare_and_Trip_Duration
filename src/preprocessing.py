@@ -1,8 +1,9 @@
 # src/preprocessing.py — Data cleaning, filtering, and preprocessing module
 import logging
 import os
-import pandas as pd
 from typing import Dict, Tuple
+
+import pandas as pd
 
 from src.config import (
     ALLOWED_FEATURES,
@@ -27,9 +28,7 @@ from src.config import (
     VALID_RATECODES,
 )
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -50,9 +49,7 @@ def calculate_trip_duration(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def filter_outliers(
-    df: pd.DataFrame, verbose: bool = True
-) -> Tuple[pd.DataFrame, Dict[str, int]]:
+def filter_outliers(df: pd.DataFrame, verbose: bool = True) -> Tuple[pd.DataFrame, Dict[str, int]]:
     """
     Applies pure data cleaning and outlier filtering rules sequentially.
     Tracks and logs the exact count of rows dropped by each rule.
@@ -111,9 +108,7 @@ def filter_outliers(
     stats["invalid_passenger_counts"] = int(dropped_pass)
 
     # Rule 6: Valid RatecodeID (non-null, in 1..6)
-    mask_rate = cleaned_df["RatecodeID"].notnull() & cleaned_df["RatecodeID"].isin(
-        VALID_RATECODES
-    )
+    mask_rate = cleaned_df["RatecodeID"].notnull() & cleaned_df["RatecodeID"].isin(VALID_RATECODES)
     dropped_rate = (~mask_rate).sum()
     cleaned_df = cleaned_df[mask_rate]
     stats["invalid_ratecodes"] = int(dropped_rate)
@@ -146,12 +141,8 @@ def filter_outliers(
                 "retention_rate_pct",
             ]:
                 logger.info(f"  - Dropped by {rule}: {count:,}")
-        logger.info(
-            f"Total rows dropped: {total_dropped:,} ({100 - stats['retention_rate_pct']}%)"
-        )
-        logger.info(
-            f"Final clean rows: {final_count:,} ({stats['retention_rate_pct']}%)"
-        )
+        logger.info(f"Total rows dropped: {total_dropped:,} ({100 - stats['retention_rate_pct']}%)")
+        logger.info(f"Final clean rows: {final_count:,} ({stats['retention_rate_pct']}%)")
 
     return cleaned_df, stats
 
@@ -180,9 +171,7 @@ def drop_banned_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     # Assert leakage prevention
     for banned in BANNED_COLUMNS:
-        assert (
-            banned not in cleaned.columns
-        ), f"LEAKAGE ERROR: Banned column '{banned}' survived!"
+        assert banned not in cleaned.columns, f"LEAKAGE ERROR: Banned column '{banned}' survived!"
 
     return cleaned
 
@@ -247,12 +236,8 @@ def clean_and_preprocess_dataset(
         os.makedirs(os.path.dirname(TRAIN_CLEANED_PATH), exist_ok=True)
         train_df.to_parquet(TRAIN_CLEANED_PATH, index=False)
         test_df.to_parquet(TEST_CLEANED_PATH, index=False)
-        logger.info(
-            f"Saved cleaned train split to {TRAIN_CLEANED_PATH} ({len(train_df):,} rows)"
-        )
-        logger.info(
-            f"Saved cleaned test split to {TEST_CLEANED_PATH} ({len(test_df):,} rows)"
-        )
+        logger.info(f"Saved cleaned train split to {TRAIN_CLEANED_PATH} ({len(train_df):,} rows)")
+        logger.info(f"Saved cleaned test split to {TEST_CLEANED_PATH} ({len(test_df):,} rows)")
 
     return train_df, test_df, stats
 

@@ -1,5 +1,6 @@
 """Model artifact loading and prediction service."""
 
+import logging
 import pickle
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,8 @@ from typing import Any
 import pandas as pd
 
 from app.model.schema import PredictionRequest, PredictionResponse
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_BUNDLE_KEYS = {"model", "feature_order", "version"}
 REQUEST_FEATURES = {
@@ -45,9 +48,7 @@ class ModelService:
 
             missing_keys = REQUIRED_BUNDLE_KEYS - bundle.keys()
             if missing_keys:
-                raise ValueError(
-                    f"Model artifact is missing keys: {sorted(missing_keys)}"
-                )
+                raise ValueError(f"Model artifact is missing keys: {sorted(missing_keys)}")
 
             feature_order = list(bundle["feature_order"])
             if set(feature_order) != REQUEST_FEATURES:
@@ -59,12 +60,18 @@ class ModelService:
             self.feature_order = feature_order
             self.version = str(bundle["version"])
 
-            # Pre-warm booster & validation buffers
+            # Pre-warm booster & validation buffers. Warm-up is an optimisation, so a
+            # failure must not block startup — but it does mean the fast path is about
+            # to fail on every request, so say so.
             if hasattr(self.model, "warm_up"):
                 try:
                     self.model.warm_up()
                 except Exception:
-                    pass
+                    logger.warning(
+                        "Model warm-up failed; serving will still work but the fast "
+                        "path is likely broken.",
+                        exc_info=True,
+                    )
         except Exception as exc:
             self.load_error = f"{type(exc).__name__}: {exc}"
 
@@ -84,21 +91,36 @@ class ModelService:
                     model_version=self.version,
                 )
             except Exception:
-                # Graceful fallback to DataFrame prediction path
-                pass
+                # Fall back to the DataFrame path so the request still gets an answer,
+                # but never silently: the two paths are meant to be numerically
+                # identical, so reaching this branch is a bug, not a tuning knob.
+                logger.warning(
+                    "predict_fast failed for payload %r; falling back to the " "DataFrame path.",
+                    input_data,
+                    exc_info=True,
+                )
 
         features = pd.DataFrame(
             [[input_data[name] for name in self.feature_order]],
             columns=self.feature_order,
         )
-        prediction = self.model.predict(features)
+
+        # When the fallback fails too there is nothing left to try, but the failure must
+        # still arrive as a diagnosable message rather than an unhandled traceback: the
+        # router turns RuntimeError into a 500 carrying `detail`, and anything else into
+        # a bare 500 that says nothing. This is reachable with schema-valid input — a
+        # model that cannot consume NaN raises here for the two zones with no centroid.
+        try:
+            prediction = self.model.predict(features)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Model failed to predict for {input_data!r}: {type(exc).__name__}: {exc}"
+            ) from exc
 
         try:
             predicted_fare, predicted_duration = prediction[0]
         except (IndexError, TypeError, ValueError) as exc:
-            raise RuntimeError(
-				"Model must return [fare, duration] for each input row"
-            ) from exc
+            raise RuntimeError("Model must return [fare, duration] for each input row") from exc
 
         return PredictionResponse(
             predicted_fare=float(predicted_fare),

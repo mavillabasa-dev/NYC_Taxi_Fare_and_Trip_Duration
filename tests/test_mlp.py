@@ -1,13 +1,10 @@
 # tests/test_mlp.py — Unit tests for Multi-Layer Perceptron (MLP) Regressors (T-108)
-import os
-import pickle
 import numpy as np
 import pandas as pd
-import pytest
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.neural_network import MLPRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from src.config import RANDOM_SEED
 from src.mlp import (

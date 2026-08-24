@@ -1,0 +1,10 @@
+# Commits that only moved whitespace around. `git blame` skips them so it keeps
+# pointing at whoever last changed the logic, not at the person who ran the formatter.
+#
+# Enable once per clone:
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Add the full 40-character hash of any future formatting-only commit below.
+
+# style: adopt ruff and black across the repo
+5ff94947b137990731e71397406be97ded64d97a

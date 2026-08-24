@@ -11,12 +11,8 @@ TRAIN_CLEANED_PATH = os.path.join(DATASET_DIR, "train_cleaned.parquet")
 TEST_CLEANED_PATH = os.path.join(DATASET_DIR, "test_cleaned.parquet")
 
 # Ingestion Source URLs & Local Auxiliary Paths
-YELLOW_TAXI_URL = (
-    "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2022-05.parquet"
-)
-TAXI_ZONE_LOOKUP_URL = (
-    "https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv"
-)
+YELLOW_TAXI_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2022-05.parquet"
+TAXI_ZONE_LOOKUP_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv"
 TAXI_ZONE_SHAPEFILE_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip"
 
 TAXI_ZONE_LOOKUP_PATH = os.path.join(DATASET_DIR, "taxi_zone_lookup.csv")

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.features import NYCFeaturePipeline
 from src.gradient_boosting import (
     SearchConfig,
     regression_metrics,
@@ -13,7 +14,6 @@ from src.gradient_boosting import (
     save_results,
     validate_feature_contract,
 )
-from src.features import NYCFeaturePipeline
 
 
 @pytest.fixture
@@ -103,9 +103,7 @@ def test_experiment_integrates_with_t105_feature_pipeline(tmp_path):
     distance = np.linspace(0.5, 12.0, rows)
     frame = pd.DataFrame(
         {
-            "tpep_pickup_datetime": pd.date_range(
-                "2022-05-01", periods=rows, freq="h"
-            ),
+            "tpep_pickup_datetime": pd.date_range("2022-05-01", periods=rows, freq="h"),
             "PULocationID": location_ids,
             "DOLocationID": np.roll(location_ids, 1),
             "passenger_count": np.resize(np.array([1, 2]), rows),

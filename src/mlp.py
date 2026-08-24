@@ -22,9 +22,8 @@ import logging
 import os
 import pickle
 import time
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Tuple
 
 import joblib
 import numpy as np
@@ -32,7 +31,6 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
     mean_absolute_error,
-    mean_absolute_percentage_error,
     mean_squared_error,
     r2_score,
 )
@@ -194,7 +192,9 @@ def train_and_evaluate_mlp(
     reports = {}
 
     for target in TARGET_COLUMNS:
-        logger.info(f"Training MLP for target: {target} (architecture={config.hidden_layer_sizes})...")
+        logger.info(
+            f"Training MLP for target: {target} (architecture={config.hidden_layer_sizes})..."
+        )
         y_train = train_df[target].values
         y_test = test_df[target].values
 
@@ -210,9 +210,7 @@ def train_and_evaluate_mlp(
 
         mlp_model: MLPRegressor = mlp_pipe.named_steps["mlp"]
         loss_curve = [float(x) for x in getattr(mlp_model, "loss_curve_", [])]
-        val_scores = [
-            float(x) for x in getattr(mlp_model, "validation_scores_", [])
-        ]
+        val_scores = [float(x) for x in getattr(mlp_model, "validation_scores_", [])]
         n_epochs = int(getattr(mlp_model, "n_iter_", 0))
 
         run_res = MLPRunResult(

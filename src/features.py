@@ -24,9 +24,10 @@ ACCEPTANCE CRITERIA VERIFIED (T-105):
 import logging
 import os
 import pickle
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List, Optional, Tuple, Union
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from src.config import (
@@ -34,7 +35,6 @@ from src.config import (
     AM_RUSH_END_HOUR,
     AM_RUSH_START_HOUR,
     DAYS_IN_WEEK,
-    DEFAULT_GLOBAL_FARE_MEAN,
     DEFAULT_TARGET_ENCODING_SMOOTHING,
     EARTH_RADIUS_MILES,
     EPSILON_DISTANCE,
@@ -50,14 +50,10 @@ from src.config import (
     NEWARK_RATECODE_ID,
     PM_RUSH_END_HOUR,
     PM_RUSH_START_HOUR,
-    RANDOM_SEED,
     TAXI_ZONE_CENTROIDS_PATH,
-    TAXI_ZONE_LOOKUP_PATH,
 )
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -76,10 +72,7 @@ def calculate_haversine_distance(
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
 
-    a = (
-        np.sin(dphi / 2.0) ** 2
-        + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
-    )
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
     return 2.0 * R * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
 
 
@@ -107,9 +100,7 @@ class TemporalFeatureExtractor(BaseEstimator, TransformerMixin):
     def __init__(self) -> None:
         pass
 
-    def fit(
-        self, X: pd.DataFrame, y: Optional[Any] = None
-    ) -> "TemporalFeatureExtractor":
+    def fit(self, X: pd.DataFrame, y: Optional[Any] = None) -> "TemporalFeatureExtractor":
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -158,9 +149,7 @@ class SpatialZoneFeatureExtractor(BaseEstimator, TransformerMixin):
         self.centroids_path = centroids_path
         self.centroids_df: Optional[pd.DataFrame] = None
 
-    def fit(
-        self, X: pd.DataFrame, y: Optional[Any] = None
-    ) -> "SpatialZoneFeatureExtractor":
+    def fit(self, X: pd.DataFrame, y: Optional[Any] = None) -> "SpatialZoneFeatureExtractor":
         if os.path.exists(self.centroids_path):
             self.centroids_df = pd.read_csv(self.centroids_path)
         else:
@@ -206,9 +195,7 @@ class SpatialZoneFeatureExtractor(BaseEstimator, TransformerMixin):
         ).clip(upper=MAX_HAVERSINE_RATIO)
 
         # Categorical spatial indicators
-        X_out["is_same_zone"] = (
-            X_out["PULocationID"] == X_out["DOLocationID"]
-        ).astype(int)
+        X_out["is_same_zone"] = (X_out["PULocationID"] == X_out["DOLocationID"]).astype(int)
 
         # Airport flags (JFK = RatecodeID 2 or Zone 132; Newark = RatecodeID 3 or Zone 1)
         is_jfk_rate = X_out["RatecodeID"] == JFK_RATECODE_ID
@@ -273,9 +260,7 @@ class TargetCategoricalEncoder(BaseEstimator, TransformerMixin):
                 # Smoothed target encoding formula: (n * mean + m * global_mean) / (n + m)
                 n = stats["count"]
                 cat_mean = stats["mean"]
-                smoothed = (n * cat_mean + self.smoothing * global_mean) / (
-                    n + self.smoothing
-                )
+                smoothed = (n * cat_mean + self.smoothing * global_mean) / (n + self.smoothing)
 
                 self.target_maps_[col] = smoothed.to_dict()
 
@@ -306,9 +291,7 @@ class NYCFeaturePipeline(BaseEstimator, TransformerMixin):
         self.smoothing = smoothing
 
         self.temporal_extractor = TemporalFeatureExtractor()
-        self.spatial_extractor = SpatialZoneFeatureExtractor(
-            centroids_path=centroids_path
-        )
+        self.spatial_extractor = SpatialZoneFeatureExtractor(centroids_path=centroids_path)
         self.target_encoder = TargetCategoricalEncoder(smoothing=smoothing)
         self.feature_names_: List[str] = []
 
@@ -355,6 +338,37 @@ class NYCFeaturePipeline(BaseEstimator, TransformerMixin):
         y: Optional[Union[pd.Series, pd.DataFrame, np.ndarray]] = None,
     ) -> pd.DataFrame:
         return self.fit(X, y).transform(X)
+
+
+def load_feature_pipeline(pipeline_path: str) -> "NYCFeaturePipeline":
+    """Loads the fitted T-105 pipeline, failing usefully when the cache is stale.
+
+    `models/feature_pipeline.pkl` is a local cache: gitignored, produced by whoever ran
+    the pipeline last, on whatever library versions they had. Unpickling it under a
+    different pandas raises from deep inside pandas internals - the observed case is
+
+        TypeError: StringDtype.__init__() takes from 1 to 2 positional arguments
+                   but 3 were given
+
+    which is what a pandas 3.x pickle looks like to pandas 2.x, and says nothing about
+    what to do. The cache cannot be migrated, only rebuilt, so say that instead.
+    """
+    try:
+        with open(pipeline_path, "rb") as handle:
+            return pickle.load(handle)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not load the cached feature pipeline at {pipeline_path}: "
+            f"{type(exc).__name__}: {exc}\n"
+            "This usually means the file was written by a different pandas, numpy or "
+            "scikit-learn than the one now installed - most often an artifact left over "
+            "from before the dependency versions were pinned.\n"
+            "It is a cache, not a source of truth. Delete it and re-run:\n"
+            f"    rm {pipeline_path}\n"
+            "    python -m scripts.run_training_pipeline\n"
+            "If versions were not the cause, check that the installed set matches "
+            "requirements.txt."
+        ) from exc
 
 
 def build_and_save_feature_pipeline(

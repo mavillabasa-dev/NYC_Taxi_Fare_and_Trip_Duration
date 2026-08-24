@@ -1,8 +1,24 @@
 # Development and test dependencies. Ticket: T-101 / T-112
 # `make test` runs pytest from the repo root over tests/ and api/tests/.
+#
+# This file pulls in BOTH environments so that a single
+#     pip install -r requirements-dev.txt
+# gives you the offline pipeline and everything the API test suite imports.
+#
+# Useful side effect: it only resolves while the shared pins
+# (pandas, numpy, scikit-learn, lightgbm) are identical in requirements.txt and
+# api/requirements.txt. If the two files ever drift apart, pip reports a version
+# conflict here instead of the drift reaching a pickled model.
 
 -r requirements.txt
 -r api/requirements.txt
 
-pytest>=8.2
-httpx>=0.27          # FastAPI TestClient dependency
+pytest==9.1.1
+httpx==0.28.1        # FastAPI TestClient dependency
+PyYAML==6.0.3        # tests/test_docker_config.py parses docker-compose.yml
+
+# Lint and format. Configuration is in pyproject.toml; hooks in .pre-commit-config.yaml.
+# After installing, run `pre-commit install` once so they fire on commit.
+ruff==0.16.4
+black==26.5.1
+pre-commit==4.6.2

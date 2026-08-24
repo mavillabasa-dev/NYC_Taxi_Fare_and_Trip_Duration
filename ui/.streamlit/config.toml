@@ -1,0 +1,20 @@
+# Base palette for the dashboard, matched to the T-115 deck (ppt/index.html).
+#
+# This file and ui/theme.py are two halves of the same theme and neither is redundant.
+# Streamlit renders its own widgets — selectboxes, inputs, the dropdown menus they open
+# — from these values, and CSS cannot reach inside them. Everything config.toml has no
+# vocabulary for (typography, the checker motif, metric cards) lives in ui/theme.py.
+
+[theme]
+base = "dark"
+primaryColor = "#F0BE4A"            # gold: buttons, focus rings, active states
+backgroundColor = "#0B0A0C"         # slide surface
+secondaryBackgroundColor = "#141216"  # raised card
+textColor = "#F2ECE0"               # cream
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

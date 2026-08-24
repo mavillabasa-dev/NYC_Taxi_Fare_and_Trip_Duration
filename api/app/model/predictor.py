@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -58,10 +58,7 @@ def _haversine_np(
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
 
-    a = (
-        np.sin(dphi / 2.0) ** 2
-        + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
-    )
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2.0) ** 2
     return 2.0 * EARTH_RADIUS_MILES * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
 
 
@@ -151,18 +148,10 @@ class SelfContainedTaxiModel:
         ).astype(int)
 
         # 3. Spatial Zone Centroids
-        pu_lat = np.array(
-            [self.centroid_lookup.get(int(z), (np.nan, np.nan))[0] for z in pu_id]
-        )
-        pu_lon = np.array(
-            [self.centroid_lookup.get(int(z), (np.nan, np.nan))[1] for z in pu_id]
-        )
-        do_lat = np.array(
-            [self.centroid_lookup.get(int(z), (np.nan, np.nan))[0] for z in do_id]
-        )
-        do_lon = np.array(
-            [self.centroid_lookup.get(int(z), (np.nan, np.nan))[1] for z in do_id]
-        )
+        pu_lat = np.array([self.centroid_lookup.get(int(z), (np.nan, np.nan))[0] for z in pu_id])
+        pu_lon = np.array([self.centroid_lookup.get(int(z), (np.nan, np.nan))[1] for z in pu_id])
+        do_lat = np.array([self.centroid_lookup.get(int(z), (np.nan, np.nan))[0] for z in do_id])
+        do_lon = np.array([self.centroid_lookup.get(int(z), (np.nan, np.nan))[1] for z in do_id])
 
         df_out["pu_lat"] = pu_lat
         df_out["pu_lon"] = pu_lon
@@ -186,9 +175,7 @@ class SelfContainedTaxiModel:
         df_out["is_jfk"] = (is_jfk_rate | is_jfk_zone).astype(int)
 
         is_newark_rate = ratecode == NEWARK_RATECODE_ID
-        is_newark_zone = (pu_id == NEWARK_AIRPORT_ZONE_ID) | (
-            do_id == NEWARK_AIRPORT_ZONE_ID
-        )
+        is_newark_zone = (pu_id == NEWARK_AIRPORT_ZONE_ID) | (do_id == NEWARK_AIRPORT_ZONE_ID)
         df_out["is_newark"] = (is_newark_rate | is_newark_zone).astype(int)
 
         # 4. Smoothed Target Encodings
@@ -243,37 +230,41 @@ class SelfContainedTaxiModel:
         is_am_rush = 1.0 if (AM_RUSH_START_HOUR <= hour <= AM_RUSH_END_HOUR) else 0.0
         is_pm_rush = 1.0 if (PM_RUSH_START_HOUR <= hour <= PM_RUSH_END_HOUR) else 0.0
         is_rush_hour = 1.0 if (is_weekday and (is_am_rush or is_pm_rush)) else 0.0
-        is_holiday = (
-            1.0
-            if (dt.month == MEMORIAL_DAY_MONTH and dt.day == MEMORIAL_DAY_DAY)
-            else 0.0
+        is_holiday = 1.0 if (dt.month == MEMORIAL_DAY_MONTH and dt.day == MEMORIAL_DAY_DAY) else 0.0
+
+        # Not every LocationID the API accepts has a centroid: the Taxi Zone Shapefile
+        # only carries geometry for 1-263, so 264 ("Unknown") and 265 ("N/A") arrive
+        # here as NaN. Keep them NaN and zero the distances — that is exactly what the
+        # DataFrame path produces via nan_to_num, and what the model was trained on.
+        # Defaulting the coordinates to (0.0, 0.0) instead fabricates a ~5,400-mile
+        # trip from the Gulf of Guinea and silently poisons the prediction.
+        pu_lat, pu_lon = self.centroid_lookup.get(pu_id, (math.nan, math.nan))
+        do_lat, do_lon = self.centroid_lookup.get(do_id, (math.nan, math.nan))
+
+        coords_known = not (
+            math.isnan(pu_lat) or math.isnan(pu_lon) or math.isnan(do_lat) or math.isnan(do_lon)
         )
 
-        pu_coords = self.centroid_lookup.get(pu_id, (0.0, 0.0))
-        do_coords = self.centroid_lookup.get(do_id, (0.0, 0.0))
-        pu_lat = pu_coords[0] if not math.isnan(pu_coords[0]) else 0.0
-        pu_lon = pu_coords[1] if not math.isnan(pu_coords[1]) else 0.0
-        do_lat = do_coords[0] if not math.isnan(do_coords[0]) else 0.0
-        do_lon = do_coords[1] if not math.isnan(do_coords[1]) else 0.0
+        if coords_known:
+            # Fast Haversine scalar
+            phi1 = math.radians(pu_lat)
+            phi2 = math.radians(do_lat)
+            dphi = math.radians(do_lat - pu_lat)
+            dlambda = math.radians(do_lon - pu_lon)
+            a = (
+                math.sin(dphi / 2.0) ** 2
+                + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+            )
+            haversine = 2.0 * EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(max(0.0, a))))
 
-        # Fast Haversine scalar
-        phi1 = math.radians(pu_lat)
-        phi2 = math.radians(do_lat)
-        dphi = math.radians(do_lat - pu_lat)
-        dlambda = math.radians(do_lon - pu_lon)
-        a = (
-            math.sin(dphi / 2.0) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
-        )
-        haversine = (
-            2.0 * EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(max(0.0, a))))
-        )
-
-        # Fast Manhattan scalar
-        lat_mid = math.radians((pu_lat + do_lat) / 2.0)
-        dlat_miles = abs(do_lat - pu_lat) * MILES_PER_DEGREE_LATITUDE
-        dlon_miles = abs(do_lon - pu_lon) * MILES_PER_DEGREE_LATITUDE * math.cos(lat_mid)
-        manhattan = dlat_miles + dlon_miles
+            # Fast Manhattan scalar
+            lat_mid = math.radians((pu_lat + do_lat) / 2.0)
+            dlat_miles = abs(do_lat - pu_lat) * MILES_PER_DEGREE_LATITUDE
+            dlon_miles = abs(do_lon - pu_lon) * MILES_PER_DEGREE_LATITUDE * math.cos(lat_mid)
+            manhattan = dlat_miles + dlon_miles
+        else:
+            haversine = 0.0
+            manhattan = 0.0
 
         haversine_ratio = min(
             max(haversine / (trip_dist + EPSILON_DISTANCE), 0.0), MAX_HAVERSINE_RATIO
@@ -299,19 +290,13 @@ class SelfContainedTaxiModel:
         )
 
         pu_te = float(
-            self.target_encodings.get("PULocationID", {}).get(
-                pu_id, self.global_fare_mean
-            )
+            self.target_encodings.get("PULocationID", {}).get(pu_id, self.global_fare_mean)
         )
         do_te = float(
-            self.target_encodings.get("DOLocationID", {}).get(
-                do_id, self.global_fare_mean
-            )
+            self.target_encodings.get("DOLocationID", {}).get(do_id, self.global_fare_mean)
         )
         rate_te = float(
-            self.target_encodings.get("RatecodeID", {}).get(
-                ratecode, self.global_fare_mean
-            )
+            self.target_encodings.get("RatecodeID", {}).get(ratecode, self.global_fare_mean)
         )
 
         feat_vec = [

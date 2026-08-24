@@ -1,5 +1,4 @@
 # tests/test_preprocessing.py — Unit tests for data preprocessing & leakage prevention
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -87,9 +86,7 @@ def test_drop_banned_columns_leakage_prevention(sample_raw_data: pd.DataFrame):
 
     # 1. Assert NONE of the banned columns exist
     for banned_col in BANNED_COLUMNS:
-        assert (
-            banned_col not in feature_df.columns
-        ), f"Leakage violation: {banned_col} found!"
+        assert banned_col not in feature_df.columns, f"Leakage violation: {banned_col} found!"
 
     # 2. Assert ONLY allowed features + target columns exist
     expected_set = set(ALLOWED_FEATURES + TARGET_COLUMNS)

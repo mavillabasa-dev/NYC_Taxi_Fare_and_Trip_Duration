@@ -3,10 +3,12 @@
 Este documento describe el dashboard de Streamlit implementado para T-111: predicción de
 tarifa y duración de viajes de taxi en NYC, consumiendo la API de T-110.
 
-> **Estado del proyecto en el momento de este documento:** T-105 a T-109 (feature
-> engineering y modelling) todavía no están implementados. No existe un modelo entrenado
-> real. Todo lo que se describe acá fue construido y probado contra un **modelo fixture**
-> (ver sección "Qué falta integrar").
+> **Estado:** revisado tras el cierre de T-105 a T-114. Cuando se escribió la primera
+> versión de este documento no existía el pipeline de modelling; hoy sí, y
+> `src/model_selection.py` produce un artefacto LightGBM real. **Nada de `ui/` cambió por
+> eso**: su único contrato es HTTP contra la API de T-110. Para desarrollar sigue siendo
+> válido levantar todo contra el modelo fixture de `scripts/dev_fixture_model.py`
+> (ver sección 3).
 
 ---
 
@@ -45,11 +47,21 @@ Configuración centralizada, mismo patrón que `api/settings.py` (`dataclass` co
 | Variable | Default | Para qué |
 |---|---|---|
 | `API_URL` | `http://localhost:8000` | URL base de la API de T-110. En Docker se pisa con `http://api:8000` (DNS interno de Compose). |
-| `DATASET_DIR` | `../dataset` | Carpeta donde están `taxi_zone_centroids.csv` y `taxi_zones.geojson`. El default asume que corrés Streamlit con `ui/` como directorio actual. En Docker se pisa con `/app/dataset` (bind-mount). |
+| `DATASET_DIR` | autodetectado | Carpeta donde están `taxi_zone_centroids.csv` y `taxi_zones.geojson`. En Docker se pisa con `/app/dataset` (bind-mount). |
 
 Se agregó `DATASET_DIR` porque `zones.py` y `choropleth.py` originalmente calculaban la
 ruta a `dataset/` con `Path(__file__).resolve().parent.parent`, que se rompe apenas
 Docker "aplana" la imagen (mismo problema que ya existía con `MODEL_PATH` en la API).
+
+Cuando la variable no está seteada, `_get_default_dataset_dir()` prueba en orden:
+`./dataset` (raíz del repo como directorio actual), luego `<repo>/dataset` calculado desde
+`__file__`, y por último `../dataset` (Streamlit corriendo desde `ui/`). Así el mismo
+código funciona local y en el contenedor sin configurar nada.
+
+> ⚠️ El default se evalúa **al importar el módulo**, porque es el valor por defecto de un
+> campo de `dataclass`. Depende del directorio de trabajo en ese instante y no se puede
+> cambiar después con `monkeypatch`. Mismo patrón —y misma limitación— que
+> `api/settings.py`.
 
 ### `ui/api_client.py`
 Único punto de contacto con la API. Dos funciones, **ninguna lanza excepción** — devuelven
@@ -67,9 +79,16 @@ Carga `dataset/taxi_zone_centroids.csv` (generado por la ingesta de T-116,
 `"JFK Airport (Queens)"` para mostrar en los selectbox. Cacheado con `@st.cache_data` — se
 lee el CSV una sola vez por sesión, no en cada rerun.
 
-Dos zonas (`LocationID` 264 "Unknown" y 265 "Outside of NYC") no tienen coordenadas en el
-shapefile original — el código las tolera con `fillna()` para el nombre, y los componentes
-de mapa las descartan explícitamente (`dropna`) antes de graficar.
+El Taxi Zone Shapefile solo trae geometría para los `LocationID` **1 a 263**; las dos
+zonas restantes (264 y 265) llegan sin coordenadas. El código las tolera con `fillna()`
+para el nombre, y los componentes de mapa las descartan explícitamente (`dropna`) antes de
+graficar.
+
+> Esas dos zonas no son un detalle cosmético: el schema de la API acepta `1..265`, y
+> durante un tiempo `predict_fast` las resolvía a `(0.0, 0.0)` y calculaba un viaje de
+> ~5.400 millas desde el golfo de Guinea. Está corregido y cubierto por
+> `tests/test_predictor_parity.py`, que compara las dos rutas de inferencia para cada uno
+> de los 265 `LocationID`.
 
 También vive acá `infer_ratecode(pu_location_id, do_location_id) -> int`: el `RatecodeID`
 no es una preferencia del pasajero, es una consecuencia de qué zonas se eligen, así que se
@@ -141,14 +160,19 @@ HTTP en cada predicción simple.
 
 ### `ui/requirements.txt`
 ```
-streamlit
-requests
-plotly
-pandas
+streamlit==1.41.1
+requests==2.32.3
+plotly==5.24.1
+pandas==2.2.3
 ```
 Deliberadamente mínimo — **no incluye `geopandas`** (necesaria para leer shapefiles), esa
 dependencia vive solo en el `requirements.txt` de la raíz (offline, host) porque el
 dashboard nunca lee el shapefile directamente, solo el `.geojson` ya convertido.
+
+Las versiones están fijadas con `==`, igual que `api/requirements.txt`. A diferencia de
+esos dos archivos, aquí no hace falta sincronizar nada con la raíz: el dashboard no
+deserializa el modelo, así que su `pandas` no tiene por qué coincidir con el que produjo
+`models/model.pkl`.
 
 ### `ui/Dockerfile`
 Mismo patrón que `api/Dockerfile`: `python:3.11-slim`, instala requirements, `COPY . .`,
@@ -158,11 +182,13 @@ corre `streamlit run app.py --server.address=0.0.0.0 --server.port=8501`.
 No son parte de ningún ticket — son herramientas de desarrollo temporales, fuera de
 `src/` y `api/`:
 
-- **`dev_fixture_model.py`**: genera un `models/model.pkl` de mentira (siempre predice
-  `fare=18.75`, `duration=27.5`) para poder desarrollar y demostrar el dashboard sin
-  esperar a T-105-T-109. Usa `cloudpickle` (no `pickle`) porque así el archivo se puede
-  cargar desde cualquier proceso sin que ese proceso necesite importar este script — el
-  detalle está comentado en el propio archivo.
+- **`dev_fixture_model.py`**: genera un `models/model.pkl` con estimadores
+  `LinearRegression` baratos y centroides sintéticos, para poder desarrollar y demostrar
+  el dashboard sin esperar al artefacto real. Importa la clase como
+  `app.model.predictor` (no `api.app.model.predictor`): pickle graba la ruta del módulo,
+  y dentro de la imagen el `COPY . .` desde `./api` aplana el árbol, así que solo existe
+  `app.model.predictor`. Se niega a sobrescribir un artefacto existente salvo `--force`,
+  porque escribe en la misma ruta que el modelo real.
 - **`shapefile_to_geojson.py`**: convierte el shapefile de zonas (ya extraído por la
   ingesta de T-116) a `dataset/taxi_zones.geojson`, que es lo único que `choropleth.py`
   necesita leer. Se corre una sola vez, en el host, con `geopandas`.
@@ -195,12 +221,32 @@ Streamlit imprime una URL (`http://localhost:8501`) y abre el browser solo.
 **Antes de la primera vez**, hace falta:
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r api/requirements.txt -r ui/requirements.txt cloudpickle
+pip install -r requirements-dev.txt -r ui/requirements.txt
 cp .env.original .env
 python scripts/dev_fixture_model.py          # genera el modelo fixture
 python -m src.data_utils                     # descarga datos + genera taxi_zone_centroids.csv
 python scripts/shapefile_to_geojson.py       # genera taxi_zones.geojson
 ```
+
+En Windows / PowerShell:
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt -r ui\requirements.txt
+Copy-Item .env.original .env
+python scripts\dev_fixture_model.py
+python -m src.data_utils
+python scripts\shapefile_to_geojson.py
+```
+
+> `make install` y `make fixture` hacen los dos primeros pasos, pero **`make` no viene con
+> Windows** — ahí hay que usar los comandos de arriba tal cual.
+
+`dev_fixture_model.py` se niega a pisar un `models/model.pkl` existente: si ya entrenaste
+el modelo real, o pasás `--force` a propósito, o escribís a otro lado con `--output`.
+
+El dashboard necesita `taxi_zone_centroids.csv` para arrancar y ese archivo está
+gitignoreado, así que **una checkout limpia no puede levantar el dashboard hasta correr la
+ingesta**. `taxi_zones.geojson` sí está commiteado, pero no alcanza por sí solo.
 
 ### Docker
 
@@ -212,16 +258,25 @@ docker compose up
 
 Esto levanta dos servicios: `api` (puerto 8000) y `dashboard` (puerto 8501), en la misma
 red interna de Compose — el dashboard resuelve la API como `http://api:8000` (nombre de
-servicio, no `localhost`).
+servicio, no `localhost`). El `dashboard` espera con `depends_on: condition:
+service_healthy`, así que no arranca hasta que el healthcheck de `GET /health` pase.
 
-⚠️ **Limitación conocida**: el modelo fixture está serializado con `cloudpickle`, que no
-está en `api/requirements.txt` (a propósito — ese archivo debe quedar mínimo para el
-modelo real de T-109, no para nuestra herramienta de desarrollo). Esto significa que hoy,
-`docker compose up` levanta la API en estado `degraded` (modelo no cargado) salvo que se
-instale `cloudpickle` manualmente dentro del contenedor (`docker compose exec api pip
-install cloudpickle && docker compose restart api`). Es un problema **solo del modelo
-fixture** — el modelo real de T-109 no debería tener este inconveniente si se serializa
-con `pickle` estándar (lo normal para modelos de `scikit-learn`/`LightGBM`/`XGBoost`).
+T-114 agregó un tercer servicio, `trainer`, detrás del perfil `train`: no se levanta con
+`docker compose up` normal, solo con `docker compose --profile train up trainer`. Corre el
+pipeline de entrenamiento completo en un contenedor efímero y deja el artefacto en
+`./models` por bind-mount.
+
+> **Nota histórica**: este documento describía antes una limitación por la que
+> `docker compose up` dejaba la API en estado `degraded`, y sugería instalar
+> `cloudpickle` dentro del contenedor. El diagnóstico era incorrecto: la causa real no
+> era la librería de serialización sino la **ruta de módulo** grabada en el pickle. El
+> fixture importaba la clase como `api.app.model.predictor`, y ese paquete no existe
+> dentro de la imagen, así que la carga fallaba con `ModuleNotFoundError: No module
+> named 'api'` — instalar `cloudpickle` no lo habría arreglado.
+>
+> Ya está corregido: el fixture importa `app.model.predictor` y serializa con `pickle`
+> estándar, igual que `src/model_selection.export_production_model`. El artefacto pasa
+> `tests/verify_isolation.py` y carga en el contenedor sin dependencias extra.
 
 ---
 
@@ -236,10 +291,10 @@ explica varias decisiones de diseño del código:
 Las variables normales de Python (`payload`, `status_code`, etc.) se **destruyen** en cada
 rerun. Si guardáramos el resultado de la predicción en una variable común, desaparecería
 apenas el usuario tocara *cualquier otro* widget (por ejemplo, el checkbox del
-choropleth) — de hecho, esto pasó literalmente durante el desarrollo (ver
-`prediction_form.py`, líneas 55-62): al tildar el checkbox del choropleth, todo el
-resultado (métricas + mapa) desaparecía, porque el rerun disparado por el checkbox volvía
-a poner `submitted = False`.
+choropleth) — de hecho, esto pasó literalmente durante el desarrollo (el comentario que lo
+explica sigue en `prediction_form.py`, junto a la escritura en `session_state`): al tildar
+el checkbox del choropleth, todo el resultado (métricas + mapa) desaparecía, porque el
+rerun disparado por el checkbox volvía a poner `submitted = False`.
 
 **Solución:** `st.session_state` es un diccionario que **persiste entre reruns**, para la
 sesión del browser del usuario. Guardamos el resultado ahí una sola vez (cuando se
@@ -280,28 +335,44 @@ dispara un rerun por cada cambio. Se eligió según qué necesitaba cada campo.
 
 ## 5. Qué falta integrar
 
-El dashboard está completo y probado en su plumbing (formulario, mapas, manejo de
-errores, Docker), pero depende de piezas que **todavía no existen** en otras partes del
-proyecto:
+El plumbing del dashboard (formulario, mapas, manejo de errores, Docker) está completo.
+Cuando se escribió la primera versión de este documento, casi todo lo de abajo estaba
+bloqueado por tickets sin terminar; la mayoría ya se cerró.
 
-1. **Modelo real (T-105 a T-109)**: hoy todo corre contra un modelo fixture que siempre
-   devuelve `fare=18.75`, `duration=27.5` sin importar el input. El choropleth se ve
-   "plano" (un solo color) porque no hay variación real que mostrar todavía. Cuando
-   `models/model.pkl` sea reemplazado por el artefacto real de T-109, **no hace falta
-   tocar ningún código de `ui/`** — el contrato HTTP con la API no cambia.
-2. **`cloudpickle` en el contenedor de la API**: el modelo fixture necesita esa librería
-   para cargar dentro de Docker; el modelo real probablemente no la va a necesitar (ver
-   sección 3). Si el modelo real también tuviera una dependencia de serialización
-   especial, hay que agregarla a `api/requirements.txt` en T-109/T-114.
-3. **Tabla de comparación de modelos**: la idea original incluía una sección de métricas
-   (MAE/RMSE) comparando los modelos de T-106/107/108 — quedó fuera de esta
-   implementación porque no es un criterio de aceptación formal de T-111 y esos números
-   todavía no existen (dependen de T-109). Se puede agregar leyendo un artefacto estático
-   (ej. `models/model_comparison.json`) el día que exista.
-4. **`docker-compose.yml` tiene la key `version: "3.9"` obsoleta** — Compose la ignora con
-   un warning; sacarla es tarea explícita de T-114, no se tocó acá.
+### Resuelto desde la primera versión
+
+1. ~~**Modelo real (T-105 a T-109)**~~ — el pipeline existe y T-109 seleccionó LightGBM.
+   Como se anticipó, **no hubo que tocar código de `ui/`**: el contrato HTTP no cambió.
+   El artefacto sigue gitignoreado, así que cada quien lo genera local
+   (`python -m scripts.run_training_pipeline`) o usa el fixture.
+2. ~~**`cloudpickle` en el contenedor de la API**~~ — la causa real era la ruta de módulo
+   grabada en el pickle, no la librería de serialización (ver sección 3). El fixture ya
+   serializa con `pickle` estándar bajo `app.model.predictor` y carga en el contenedor sin
+   dependencias adicionales.
+3. ~~**`docker-compose.yml` con la key `version: "3.9"` obsoleta**~~ — la sacó T-114, y
+   `tests/test_docker_config.py` ahora falla si alguien la reintroduce.
+
+### Sigue pendiente
+
+4. **Tabla de comparación de modelos**: los números de T-106/107/108 ya existen
+   (`docs/T-109-model-selection.md`), pero el dashboard no los muestra. Nunca fue criterio
+   de aceptación de T-111. Se puede agregar leyendo un artefacto estático — hoy habría que
+   producirlo, porque `model_selection.py` devuelve el leaderboard en memoria sin
+   escribirlo a disco.
 5. **`Trip distance (auto)` usa haversine, no una API de ruteo real**: es una mejora
    incremental (antes era 100% manual) pero sigue siendo una subestimación sistemática de
-   la distancia real en auto — sobre todo en NYC, con ríos y puentes de por medio. La
-   solución de fondo sería integrar una API de ruteo (Google Maps, OSRM, etc.), fuera de
-   alcance de este PR.
+   la distancia real en auto — sobre todo en NYC, con ríos y puentes de por medio. Pesa
+   más ahora que hay un modelo real detrás: `trip_distance` es la feature más predictiva,
+   el campo está **deshabilitado** y el usuario no puede corregirlo, así que el sesgo se
+   traslada entero a la tarifa mostrada. Opciones: permitir sobrescribir el valor, aplicar
+   un factor de rodeo (~1,3-1,4 para NYC), o integrar ruteo real (OSRM, Google Maps).
+6. **`infer_ratecode` es más agresivo que las reglas reales de TLC**: marca `RatecodeID=2`
+   (tarifa plana JFK) para *cualquier* trayecto que toque la zona 132, cuando en realidad
+   la tarifa plana solo aplica a Manhattan ↔ JFK. Un JFK → Queens es tarifa estándar.
+7. **`ui/` no tiene tests**: `infer_ratecode`, `haversine_miles` y
+   `estimate_trip_distance` son funciones puras y perfectamente testeables sin levantar
+   Streamlit.
+8. **El choropleth hace ~263 peticiones HTTP secuenciales**: T-113 optimizó la latencia de
+   petición individual, pero el caso de uso dominante del dashboard es este fan-out, donde
+   manda el overhead HTTP. Un endpoint `POST /predict/batch` lo resolvería de raíz y
+   aprovecharía que `transform_features` ya es vectorizado.

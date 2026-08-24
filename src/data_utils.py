@@ -25,9 +25,7 @@ from src.config import (
     YELLOW_TAXI_URL,
 )
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -49,9 +47,7 @@ def validate_file_size(target_path: str, min_expected_size: int) -> int:
     return size
 
 
-def download_file(
-    url: str, target_path: str, min_expected_size: int, force: bool = False
-) -> bool:
+def download_file(url: str, target_path: str, min_expected_size: int, force: bool = False) -> bool:
     """
     Downloads a file from a URL to target_path idempotently.
     Skips download if file already exists or if target is a zip whose extracted dir exists.
@@ -61,12 +57,14 @@ def download_file(
 
     # Check if target file exists or if extracted shapefile directory already exists
     extracted_dir = target.parent / "taxi_zones"
-    shapefile_extracted = target.suffix == ".zip" and extracted_dir.exists() and any(extracted_dir.rglob("*.shp"))
+    shapefile_extracted = (
+        target.suffix == ".zip" and extracted_dir.exists() and any(extracted_dir.rglob("*.shp"))
+    )
 
-    if not force and (shapefile_extracted or (target.exists() and target.stat().st_size >= min_expected_size)):
-        logger.info(
-            f"Skipping download for '{target.name}' — already present or extracted"
-        )
+    if not force and (
+        shapefile_extracted or (target.exists() and target.stat().st_size >= min_expected_size)
+    ):
+        logger.info(f"Skipping download for '{target.name}' — already present or extracted")
         return False
 
     logger.info(f"Downloading '{target.name}' from {url}...")
@@ -75,15 +73,11 @@ def download_file(
         out_file.write(response.read())
 
     validate_file_size(target_path, min_expected_size)
-    logger.info(
-        f"Downloaded '{target.name}' ({target.stat().st_size / (1024*1024):.2f} MB)"
-    )
+    logger.info(f"Downloaded '{target.name}' ({target.stat().st_size / (1024*1024):.2f} MB)")
     return True
 
 
-def validate_parquet_dataset(
-    parquet_path: str, min_row_count: int = MIN_PARQUET_ROW_COUNT
-) -> int:
+def validate_parquet_dataset(parquet_path: str, min_row_count: int = MIN_PARQUET_ROW_COUNT) -> int:
     """
     Validates parquet file integrity by checking file existence, size, and row count.
 
@@ -118,9 +112,7 @@ def validate_parquet_dataset(
     return row_count
 
 
-def validate_lookup_csv(
-    csv_path: str, min_row_count: int = MIN_LOOKUP_ROW_COUNT
-) -> int:
+def validate_lookup_csv(csv_path: str, min_row_count: int = MIN_LOOKUP_ROW_COUNT) -> int:
     """
     Validates Taxi Zone Lookup CSV integrity.
 
@@ -188,7 +180,9 @@ def derive_zone_centroids(
             zip_ref.extractall(shapefile_dir)
         try:
             os.remove(shapefile_path)
-            logger.info(f"Removed downloaded zip archive '{Path(shapefile_path).name}' after extraction.")
+            logger.info(
+                f"Removed downloaded zip archive '{Path(shapefile_path).name}' after extraction."
+            )
         except OSError as exc:
             logger.warning(f"Could not remove zip archive '{shapefile_path}': {exc}")
 
@@ -226,9 +220,7 @@ def derive_zone_centroids(
     # Save cached lookup table
     out_p.parent.mkdir(parents=True, exist_ok=True)
     merged_df.to_csv(output_path, index=False)
-    logger.info(
-        f"Successfully derived and saved {len(merged_df)} zone centroids to {output_path}"
-    )
+    logger.info(f"Successfully derived and saved {len(merged_df)} zone centroids to {output_path}")
 
     return merged_df
 
@@ -250,9 +242,7 @@ def ingest_all_data(force: bool = False) -> Dict[str, Any]:
 
     # 1. Download files idempotently
     download_file(YELLOW_TAXI_URL, RAW_DATA_PATH, MIN_PARQUET_SIZE_BYTES, force=force)
-    download_file(
-        TAXI_ZONE_LOOKUP_URL, TAXI_ZONE_LOOKUP_PATH, MIN_LOOKUP_SIZE_BYTES, force=force
-    )
+    download_file(TAXI_ZONE_LOOKUP_URL, TAXI_ZONE_LOOKUP_PATH, MIN_LOOKUP_SIZE_BYTES, force=force)
     download_file(
         TAXI_ZONE_SHAPEFILE_URL,
         TAXI_ZONE_SHAPEFILE_PATH,

@@ -1,22 +1,19 @@
 # tests/test_model_selection.py — Unit & Integration tests for T-109 Model Selection & Production Artifact
 import os
 import pickle
-import subprocess
-import sys
-from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from api.app.model.predictor import SelfContainedTaxiModel
-from api.app.model.services import REQUIRED_BUNDLE_KEYS, REQUEST_FEATURES
-from src.config import MODELS_DIR, RANDOM_SEED
-from src.model_selection import (
-    compute_feature_importances,
-    conduct_residual_analysis,
-    verify_model_isolation,
-)
+# Spelled `app.…`, not `api.app.…`. conftest.py puts both the repo root and api/ on
+# sys.path, so the two spellings resolve to *different* module objects: isinstance fails
+# across them, and a pickle written under one does not load under the other. `app.…` is
+# what api/main.py uses and the only package that exists inside the container.
+from app.model.services import REQUEST_FEATURES, REQUIRED_BUNDLE_KEYS
+from src.config import MODELS_DIR
+from src.model_selection import verify_model_isolation
 
 
 @pytest.fixture
@@ -43,11 +40,10 @@ def sample_request_df() -> pd.DataFrame:
     )
 
 
+@pytest.mark.requires_model
 def test_production_model_bundle_keys():
     """Verify that models/model.pkl contains all required bundle keys and request feature contracts."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     with open(model_path, "rb") as f:
         bundle = pickle.load(f)
@@ -59,11 +55,10 @@ def test_production_model_bundle_keys():
     assert hasattr(bundle["model"], "predict")
 
 
+@pytest.mark.requires_model
 def test_self_contained_model_prediction_shape(sample_request_df):
     """Test that SelfContainedTaxiModel transforms raw features and returns 2D (N, 2) predictions."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     with open(model_path, "rb") as f:
         bundle = pickle.load(f)
@@ -82,16 +77,16 @@ def test_self_contained_model_prediction_shape(sample_request_df):
     assert (dur_preds > 0).all()
 
 
+@pytest.mark.requires_model
 def test_model_isolation_acceptance_test():
     """Acceptance test: Unpickling and predicting in a subprocess where src/ is absent from sys.path."""
     model_path = os.path.join(MODELS_DIR, "model.pkl")
-    if not os.path.exists(model_path):
-        pytest.skip(f"Artifact {model_path} not found yet.")
 
     passed = verify_model_isolation(model_path)
     assert passed is True
 
 
+@pytest.mark.requires_model
 def test_real_model_api_serving_endpoint(sample_request_df):
     """Integration test: Test FastAPI app loaded with the real production model artifact."""
     import main
