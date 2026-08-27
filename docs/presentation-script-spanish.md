@@ -1,6 +1,6 @@
 # Predicción de Tarifa y Duración en Taxis de NYC — Guión de Presentación (Español)
 
-**Presentación Final Demo Day · 18 Diapositivas · 5 Presentadores · Tiempo Total: ~21:15 (incluyendo 2:30 de Demo en Vivo)**
+**Presentación Final Demo Day · 18 Diapositivas · 5 Presentadores · Tiempo Total: 20:00 (incluyendo 2:30 de Demo en Vivo)**
 
 ---
 
@@ -8,12 +8,12 @@
 
 | Presentador | Diapositivas Asignadas | Responsabilidades de Sección | Tiempo Total |
 |---|---|---|---:|
-| **Keyneth Lara** | Diapositivas 1–4 | Visión General del Proyecto y Requisitos | **3:55** |
-| **William Vera** | Diapositivas 5–8 | Arquitectura, Limpieza de Datos e Ingeniería de Features | **5:00** |
-| **Marcos Villabasa** | Diapositivas 9–13 | Exploración de Modelos, Leaderboard e Interpretabilidad | **6:30** |
+| **Keyneth Lara** | Diapositivas 1–4 | Visión General del Proyecto y Requisitos | **3:45** |
+| **William Vera** | Diapositivas 5–8 | Arquitectura, Limpieza de Datos e Ingeniería de Features | **4:20** |
+| **Marcos Villabasa** | Diapositivas 9–13 | Exploración de Modelos, Leaderboard e Interpretabilidad | **6:00** |
 | **Mauricio Mora** | Diapositiva 14 | Demostración en Vivo en Docker (FastAPI y Streamlit UI) | **2:30** |
-| **Néstor Mamani** | Diapositivas 15–18 | Supuestos, Hoja de Ruta, Conclusiones y Preguntas (Q&A) | **3:20** |
-| **Equipo Completo** | **Diapositivas 1–18** | **Historia Completa del Proyecto y Demostración en Vivo** | **~21:15** |
+| **Néstor Mamani** | Diapositivas 15–18 | Supuestos, Hoja de Ruta, Conclusiones y Preguntas (Q&A) | **3:15** |
+| **Equipo Completo** | **Diapositivas 1–18** | **Historia Completa del Proyecto y Demostración en Vivo** | **20:00** |
 
 ---
 
@@ -23,22 +23,22 @@
 |---|---|---|---|---:|
 | **01** | ¿Cuánto va a costar? ¿Cuánto va a tardar? | 1. Visión General | Keyneth Lara | 0:40 |
 | **02** | El taxímetro responde demasiado tarde | 1. Visión General | Keyneth Lara | 0:50 |
-| **03** | Escala del Dataset y Análisis Exploratorio (EDA) | 1. Visión General | Keyneth Lara | 1:15 |
-| **04** | Requisitos de Ingeniería | 2. Requisitos | Keyneth Lara | 1:10 |
-| **05** | Arquitectura del Sistema | 3. Alcance y Soluciones | William Vera | 1:20 |
-| **06** | Limpieza de Datos y División Temporal | 3. Alcance y Soluciones | William Vera | 1:20 |
-| **07** | Pipeline de Ingeniería de Características | 3. Alcance y Soluciones | William Vera | 1:20 |
-| **08** | Contrato de Variables y Prevención de Fuga | 3. Alcance y Soluciones | William Vera | 1:00 |
-| **09** | Estrategia de Exploración de Modelos | 4. Métricas y Resultados | Marcos Villabasa | 1:15 |
-| **10** | Comparación Exhaustiva de Modelos (Leaderboard) | 4. Métricas y Resultados | Marcos Villabasa | 1:30 |
-| **11** | Comparación Visual de Métricas (MAE y R²) | 4. Métricas y Resultados | Marcos Villabasa | 1:20 |
-| **12** | Por qué Ganó LightGBM | 4. Métricas y Resultados | Marcos Villabasa | 1:10 |
-| **13** | Importancia de Variables y Ganancia por Split | 4. Métricas y Resultados | Marcos Villabasa | 1:15 |
+| **03** | Escala del Dataset y Análisis Exploratorio (EDA) | 1. Visión General | Keyneth Lara | 1:10 |
+| **04** | Requisitos de Ingeniería | 2. Requisitos | Keyneth Lara | 1:05 |
+| **05** | Arquitectura del Sistema | 3. Alcance y Soluciones | William Vera | 1:15 |
+| **06** | Limpieza de Datos y División Temporal | 3. Alcance y Soluciones | William Vera | 1:15 |
+| **07** | Pipeline de Ingeniería de Características | 3. Alcance y Soluciones | William Vera | 1:15 |
+| **08** | Contrato de Variables y Prevención de Fuga | 3. Alcance y Soluciones | William Vera | 0:35 |
+| **09** | Estrategia de Exploración de Modelos | 4. Métricas y Resultados | Marcos Villabasa | 1:10 |
+| **10** | Comparación Exhaustiva de Modelos (Leaderboard) | 4. Métricas y Resultados | Marcos Villabasa | 1:20 |
+| **11** | Comparación Visual de Métricas (MAE y R²) | 4. Métricas y Resultados | Marcos Villabasa | 1:15 |
+| **12** | Por qué Ganó LightGBM | 4. Métricas y Resultados | Marcos Villabasa | 1:05 |
+| **13** | Importancia de Variables y Ganancia por Split | 4. Métricas y Resultados | Marcos Villabasa | 1:10 |
 | **14** | **Demostración en Vivo del Prototipo** *(Demo)* | 5. Demostración | Mauricio Mora | **2:30** |
 | **15** | Supuestos y Compensaciones de Ingeniería | 6. Conclusiones y Próximos Pasos | Néstor Mamani | 1:00 |
 | **16** | Próximos Pasos y Hoja de Ruta | 6. Conclusiones y Próximos Pasos | Néstor Mamani | 1:00 |
 | **17** | Puntos Clave del Proyecto | 6. Conclusiones y Próximos Pasos | Néstor Mamani | 1:00 |
-| **18** | Agradecimiento y Preguntas (Q&A) | 6. Conclusiones y Próximos Pasos | Néstor Mamani | 0:20 |
+| **18** | Agradecimiento y Preguntas (Q&A) | 6. Conclusiones y Próximos Pasos | Néstor Mamani | 0:15 |
 
 ---
 
@@ -110,9 +110,9 @@
 ### Diapositiva 08: Contrato de Variables y Prevención de Fuga
 * **Presentador**: William Vera
 * **Sección**: 3. Alcance y Soluciones
-* **Tiempo**: 1:00
+* **Tiempo**: 0:35
 
-> "Para eliminar cualquier fuga de datos, aplicamos un contrato de variables estricto. Solo se permiten seis variables de entrada al momento de inferencia: IDs de zona de origen y destino, fecha y hora de subida, cantidad de pasajeros, código de tarifa y distancia estimada. Ocho columnas posteriores al viaje—como hora de bajada, monto total, propina y peajes—están estrictamente prohibidas para prevenir fuga de target y sesgo temporal. Documentamos el supuesto clave de que la distancia representa una estimación inicial de GPS o motor de ruteo. Marcos les presentará nuestra estrategia de exploración de modelos."
+> "Para garantizar cero fuga de datos, aplicamos un contrato estricto: solo 6 variables previas están permitidas en inferencia, y 8 columnas posteriores al viaje se descartan por completo. Nuestra única excepción es `trip_distance`, estimada antes del viaje mediante motores de ruteo GPS como OSRM. Marcos presentará ahora nuestra exploración de modelos."
 
 ---
 
@@ -206,6 +206,6 @@
 ### Diapositiva 18: Agradecimiento y Preguntas (Q&A)
 * **Presentador**: Néstor Mamani
 * **Sección**: 6. Conclusiones y Próximos Pasos
-* **Tiempo**: 0:20
+* **Tiempo**: 0:15
 
-> "El taxímetro tradicional responde demasiado tarde; nuestro sistema responde antes de subir al vehículo. De parte de Keyneth, William, Marcos, Mauricio y de mi parte: muchas gracias por su tiempo. ¡Quedamos abiertos a sus preguntas y comentarios!"
+> "¿Cuánto va a costar? ¿Cuánto va a tardar? Respondido antes de subir al taxi. De parte de todo nuestro equipo: ¡muchas gracias! Quedamos abiertos a sus preguntas."

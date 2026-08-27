@@ -1,6 +1,6 @@
 # NYC Taxi Fare & Trip Duration Prediction — Presentation Script (English)
 
-**Demo Day Presentation · 18 Slides · 5 Presenters · Total Time: ~21:15 (including 2:30 Live Demo)**
+**Demo Day Presentation · 18 Slides · 5 Presenters · Total Time: 20:00 (including 2:30 Live Demo)**
 
 ---
 
@@ -8,12 +8,12 @@
 
 | Presenter | Allocated Slides | Section Responsibilities | Total Time |
 |---|---|---|---:|
-| **Keyneth Lara** | Slides 1–4 | Project Overview & Requirements | **3:55** |
-| **William Vera** | Slides 5–8 | Architecture, Data Cleaning & Feature Engineering | **5:00** |
-| **Marcos Villabasa** | Slides 9–13 | Model Exploration, Leaderboard & Interpretability | **6:30** |
+| **Keyneth Lara** | Slides 1–4 | Project Overview & Requirements | **3:45** |
+| **William Vera** | Slides 5–8 | Architecture, Data Cleaning & Feature Engineering | **4:20** |
+| **Marcos Villabasa** | Slides 9–13 | Model Exploration, Leaderboard & Interpretability | **6:00** |
 | **Mauricio Mora** | Slide 14 | Live Docker Demonstration (FastAPI & Streamlit UI) | **2:30** |
-| **Néstor Mamani** | Slides 15–18 | Assumptions, Roadmap, Key Takeaways & Q&A | **3:20** |
-| **Total Deck** | **Slides 1–18** | **Full Project Storyline & Live Demonstration** | **~21:15** |
+| **Néstor Mamani** | Slides 15–18 | Assumptions, Roadmap, Key Takeaways & Q&A | **3:15** |
+| **Total Deck** | **Slides 1–18** | **Full Project Storyline & Live Demonstration** | **20:00** |
 
 ---
 
@@ -23,22 +23,22 @@
 |---|---|---|---|---:|
 | **01** | How much? How long? | 1. Project Overview | Keyneth Lara | 0:40 |
 | **02** | The meter answers too late | 1. Project Overview | Keyneth Lara | 0:50 |
-| **03** | Dataset Scale & EDA | 1. Project Overview | Keyneth Lara | 1:15 |
-| **04** | Engineering Requirements | 2. Requirements | Keyneth Lara | 1:10 |
-| **05** | System Architecture | 3. Scope & Solutions | William Vera | 1:20 |
-| **06** | Data Cleaning & Split Rationale | 3. Scope & Solutions | William Vera | 1:20 |
-| **07** | Feature Engineering Pipeline | 3. Scope & Solutions | William Vera | 1:20 |
-| **08** | Feature Contract & Leakage Prevention | 3. Scope & Solutions | William Vera | 1:00 |
-| **09** | Model Exploration Strategy | 4. Metrics & Results | Marcos Villabasa | 1:15 |
-| **10** | Comprehensive Model Comparison | 4. Metrics & Results | Marcos Villabasa | 1:30 |
-| **11** | Visual Metric Comparisons | 4. Metrics & Results | Marcos Villabasa | 1:20 |
-| **12** | Why LightGBM Won | 4. Metrics & Results | Marcos Villabasa | 1:10 |
-| **13** | Feature Importance & Gain Analysis | 4. Metrics & Results | Marcos Villabasa | 1:15 |
+| **03** | Dataset Scale & EDA | 1. Project Overview | Keyneth Lara | 1:10 |
+| **04** | Engineering Requirements | 2. Requirements | Keyneth Lara | 1:05 |
+| **05** | System Architecture | 3. Scope & Solutions | William Vera | 1:15 |
+| **06** | Data Cleaning & Split Rationale | 3. Scope & Solutions | William Vera | 1:15 |
+| **07** | Feature Engineering Pipeline | 3. Scope & Solutions | William Vera | 1:15 |
+| **08** | Feature Contract & Leakage Prevention | 3. Scope & Solutions | William Vera | 0:35 |
+| **09** | Model Exploration Strategy | 4. Metrics & Results | Marcos Villabasa | 1:10 |
+| **10** | Comprehensive Model Comparison | 4. Metrics & Results | Marcos Villabasa | 1:20 |
+| **11** | Visual Metric Comparisons | 4. Metrics & Results | Marcos Villabasa | 1:15 |
+| **12** | Why LightGBM Won | 4. Metrics & Results | Marcos Villabasa | 1:05 |
+| **13** | Feature Importance & Gain Analysis | 4. Metrics & Results | Marcos Villabasa | 1:10 |
 | **14** | **Live Demonstration Walkthrough** *(Demo)* | 5. Project Demo | Mauricio Mora | **2:30** |
 | **15** | Assumptions & Tradeoffs | 6. Conclusions & Next Steps | Néstor Mamani | 1:00 |
 | **16** | Next Steps & Roadmap | 6. Conclusions & Next Steps | Néstor Mamani | 1:00 |
 | **17** | Key Takeaways | 6. Conclusions & Next Steps | Néstor Mamani | 1:00 |
-| **18** | Thank You & Q&A | 6. Conclusions & Next Steps | Néstor Mamani | 0:20 |
+| **18** | Thank You & Q&A | 6. Conclusions & Next Steps | Néstor Mamani | 0:15 |
 
 ---
 
@@ -110,9 +110,9 @@
 ### Slide 08: Feature Contract & Leakage Prevention
 * **Presenter**: William Vera
 * **Section**: 3. Scope & Solutions
-* **Time**: 1:00
+* **Time**: 0:35
 
-> "To eliminate data leakage, we enforce an explicit feature contract. Only six input variables are permitted at inference time: pickup and dropoff zone IDs, pickup datetime, passenger count, rate code, and estimated trip distance. Eight post-trip columns—including dropoff timestamp, total amount, tip, tolls, and payment method—are strictly banned and dropped to eliminate target leakage and lookahead bias. We also document the key assumption that trip distance represents an upfront GPS or routing engine estimate rather than a final post-trip taximeter reading. Marcos will now introduce our model exploration strategy."
+> "To guarantee zero data leakage, we enforce a strict feature contract. Only 6 pre-ride inputs are allowed at inference time, while 8 post-trip columns—including dropoff time, tolls, tips, and fare totals—are strictly banned and dropped. Our only post-trip assumption is `trip_distance`, which is estimated upfront using GPS routing engines like OSRM. Marcos will now present our model exploration results."
 
 ---
 
@@ -206,6 +206,6 @@
 ### Slide 18: Thank You & Q&A
 * **Presenter**: Néstor Mamani
 * **Section**: 6. Conclusions & Next Steps
-* **Time**: 0:20
+* **Time**: 0:15
 
-> "How much? How long? Answered before the ride starts. On behalf of Keyneth, William, Marcos, Mauricio, and myself—thank you very much for your time. We are now open for any questions and discussion!"
+> "How much? How long? Answered before the ride starts. On behalf of our entire team—thank you! We are now open for questions and feedback."
