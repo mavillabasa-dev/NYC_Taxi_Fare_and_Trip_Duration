@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zoom Virtual Background · NYC Taxi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   NYC Taxi — Zoom virtual background.
+   One 1920x1080 (16:9) frame, drawn in the same paper-and-sunset
+   palette as the final demo deck.
+
+   Composition rule: every graphic element lives in the outer
+   thirds and along the bottom edge. The middle third stays empty,
+   because that is where a seated presenter sits in both speaker
+   view and a gallery tile. Press G to see those zones.
+   ============================================================ */
+
+:root{
+  --paper:#FFFFFF;
+  --ink:#1A1512;
+  --ink-2:#5C5348;
+  --ink-3:#8B8073;
+
+  --g2:#F0C868;
+  --g3:#E0A63A;
+  --g4:#C4762A;
+  --gold-ink:#9A4E17;
+
+  --sunset:linear-gradient(100deg,#E3A83F 0%,#D2842F 48%,#AF5320 100%);
+  --sunset-text:linear-gradient(100deg,#C9852A 0%,#BE6E27 46%,#A34D1C 100%);
+
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --serif:'Fraunces','Iowan Old Style','Palatino Linotype',Georgia,serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#E8E2D8;
+  font-family:var(--sans);color:var(--ink);
+  display:grid;place-items:center;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* "Actual size" mode: 1:1 pixels, scroll to inspect or screenshot. */
+body.actual{display:block;overflow:auto}
+
+/* ---------- the exported frame ---------- */
+#frame{
+  position:relative;width:1920px;height:1080px;overflow:hidden;
+  transform:scale(var(--s,.5));transform-origin:center center;
+  box-shadow:0 50px 100px -50px rgba(26,21,18,.55);
+  background:
+    radial-gradient(118% 92% at 100% -10%, rgba(240,200,104,.42), transparent 60%),
+    radial-gradient(70% 55% at 88% 8%, rgba(224,166,58,.16), transparent 62%),
+    radial-gradient(85% 68% at -6% 106%, rgba(196,118,42,.14), transparent 62%),
+    linear-gradient(176deg,#FFFFFF 20%,#FAF1E0 100%);
+}
+body.actual #frame{transform:none;box-shadow:none;margin:0}
+
+/* ---------- city ---------- */
+.skyline{
+  position:absolute;left:0;bottom:0;width:100%;height:196px;
+  display:block;opacity:.085;color:#A0521A;pointer-events:none;
+}
+/* Street level: a taxi checker laid along the very bottom edge. */
+.floor{
+  position:absolute;left:0;right:0;bottom:0;height:16px;opacity:.5;
+  background-color:rgba(240,200,104,.12);
+  background-image:
+    linear-gradient(45deg,rgba(196,118,42,.42) 25%,transparent 25%,transparent 75%,rgba(196,118,42,.42) 75%),
+    linear-gradient(45deg,rgba(196,118,42,.42) 25%,transparent 25%,transparent 75%,rgba(196,118,42,.42) 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px;
+  -webkit-mask-image:linear-gradient(90deg,#000 0%,#000 34%,rgba(0,0,0,.25) 72%,rgba(0,0,0,.1) 100%);
+  mask-image:linear-gradient(90deg,#000 0%,#000 34%,rgba(0,0,0,.25) 72%,rgba(0,0,0,.1) 100%);
+}
+
+/* ---------- the lockup, held in the left third ---------- */
+.lockup{position:absolute;left:104px;top:104px;max-width:520px}
+.lockup .mark{display:block;margin-bottom:30px}
+.word{
+  font-family:var(--serif);font-weight:400;font-size:100px;line-height:1;
+  letter-spacing:-.022em;white-space:nowrap;
+}
+.grad{
+  color:var(--gold-ink);
+  background:var(--sunset-text);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.rule{
+  height:14px;width:132px;margin-top:32px;border-radius:2px;
+  background-color:rgba(240,200,104,.20);
+  background-image:
+    linear-gradient(45deg,var(--g3) 25%,transparent 25%,transparent 75%,var(--g3) 75%),
+    linear-gradient(45deg,var(--g3) 25%,transparent 25%,transparent 75%,var(--g3) 75%);
+  background-size:14px 14px;background-position:0 0,7px 7px;
+}
+.cap{
+  margin-top:24px;font-size:18px;font-weight:600;
+  letter-spacing:.26em;text-transform:uppercase;color:var(--ink-3);
+}
+
+/* ---------- framing guides (never exported) ---------- */
+#guides{position:absolute;inset:0;opacity:0;transition:opacity .25s;pointer-events:none}
+body.guides #guides{opacity:1}
+#guides .zone{position:absolute;border:2px dashed rgba(26,21,18,.30);border-radius:6px}
+#guides .zone span{
+  position:absolute;left:14px;top:12px;
+  font-size:17px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(26,21,18,.45);
+}
+#guides .person{left:30%;right:30%;top:7%;bottom:0;border-color:rgba(46,125,50,.45)}
+#guides .person span{color:rgba(46,125,50,.75)}
+#guides .badge{left:0;bottom:0;width:23%;height:9%;border-color:rgba(175,83,32,.45)}
+#guides .badge span{color:rgba(175,83,32,.8);top:auto;bottom:12px}
+
+/* ---------- helper panel (never exported) ---------- */
+#panel{
+  position:fixed;right:22px;bottom:22px;z-index:5;max-width:390px;
+  background:rgba(255,255,255,.94);border:1px solid rgba(26,21,18,.12);
+  border-radius:14px;padding:18px 20px;
+  box-shadow:0 18px 40px -24px rgba(26,21,18,.5);
+  font-size:12.5px;line-height:1.6;color:var(--ink-2);
+}
+body.nopanel #panel{display:none}
+#panel b{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-ink);margin-bottom:8px}
+#panel kbd{
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:11px;
+  background:rgba(240,200,104,.18);border:1px solid rgba(196,118,42,.26);
+  border-radius:4px;padding:1px 5px;color:var(--ink-2);
+}
+#panel p+p{margin-top:8px}
+
+/* ---------- export: one page, exactly 1920x1080 ---------- */
+@page{size:1920px 1080px;margin:0}
+@media print{
+  body{background:#fff;display:block;overflow:visible}
+  #frame{transform:none;box-shadow:none}
+  #panel,#guides{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="frame">
+
+  <!-- Manhattan, sitting on the bottom edge well below head height. -->
+  <svg class="skyline" viewBox="0 0 1866 220" preserveAspectRatio="none" aria-hidden="true">
+    <g fill="currentColor"><path d="M0,220L0,200L0,150L46,150L46,132L92,132L92,162L120,162L120,105L168,105L168,122L196,122L196,80L238,80L238,144L262,144L262,96L300,96L300,50L318,50L318,114L352,114L352,72L396,72L396,136L424,136L424,58L470,58L470,100L500,100L500,140L534,140L534,86L580,86L580,124L604,124L604,40L652,40L652,102L686,102L686,68L724,68L724,134L760,134L760,90L800,90L800,146L826,146L826,48L874,48L874,108L906,108L906,76L948,76L948,140L980,140L980,62L1024,62L1024,126L1052,126L1052,32L1098,32L1098,98L1132,98L1132,66L1176,66L1176,132L1208,132L1208,84L1252,84L1252,144L1280,144L1280,54L1326,54L1326,112L1360,112L1360,74L1404,74L1404,138L1436,138L1436,60L1480,60L1480,106L1512,106L1512,42L1558,42L1558,120L1592,120L1592,78L1636,78L1636,148L1666,148L1666,72L1712,72L1712,110L1744,110L1744,88L1788,88L1788,128L1820,128L1820,66L1866,66L1866,200L1866,220Z"/><path d="M306,50L309,4L312,50Z"/><path d="M625,40L628,-6L631,40Z"/><path d="M1072,32L1075,-14L1078,32Z"/><path d="M1532,42L1535,-4L1538,42Z"/></g>
+  </svg>
+  <div class="floor"></div>
+
+  <header class="lockup">
+    <svg class="mark" viewBox="0 0 128 56" width="132" height="58" aria-hidden="true">
+      <g transform="translate(128,0) scale(-1,1)">
+        <g fill="none" stroke="#C4762A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="58" y="4" width="17" height="7.5" rx="2.2"/>
+          <path d="M12 44V33.5C12 30.5 14 28.6 17 28.2L37.5 25.5L47.5 14.8C49 13.2 51 12.4 53 12.4H82C84.5 12.4 86.5 13.3 88 15L97.5 25.8L113.5 28.4C116.5 29 118 31 118 34V44"/>
+          <path d="M12 44H30"/><path d="M46 44H86"/><path d="M102 44H118"/>
+          <path d="M66.5 13V25.6"/>
+          <circle cx="38" cy="44" r="7.4"/><circle cx="94" cy="44" r="7.4"/>
+        </g>
+        <g fill="#C4762A" opacity=".92">
+          <rect x="52" y="31" width="6" height="4.2" rx="1"/>
+          <rect x="64" y="31" width="6" height="4.2" rx="1"/>
+          <rect x="58" y="35.2" width="6" height="4.2" rx="1"/>
+          <rect x="70" y="35.2" width="6" height="4.2" rx="1"/>
+        </g>
+      </g>
+    </svg>
+    <h1 class="word">NYC <span class="grad">Taxi</span></h1>
+    <div class="rule"></div>
+    <p class="cap">Fare &amp; Duration Prediction</p>
+  </header>
+
+  <div id="guides" aria-hidden="true">
+    <div class="zone person"><span>Keep clear · people on camera</span></div>
+    <div class="zone badge"><span>Zoom name badge</span></div>
+  </div>
+
+</div>
+
+<aside id="panel">
+  <b>1920 × 1080 · 16:9</b>
+  <p><kbd>G</kbd> framing guides · <kbd>F</kbd> actual size · <kbd>H</kbd> hide this panel</p>
+  <p><b style="display:inline;font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--ink)">Export</b>
+     <kbd>Ctrl</kbd>+<kbd>P</kbd> → Save as PDF · Landscape · Margins None · Background graphics ON.
+     Or press <kbd>F</kbd> and screenshot the frame at 100%.</p>
+  <p>Cleanest export: open this file with <kbd>?export</kbd> at the end of the URL — the window becomes the artwork at 1:1, with nothing else on screen.</p>
+  <p>In Zoom: Settings → Background &amp; Effects → <kbd>+</kbd> → Add Image. Turn <em>Mirror my video</em> off if the wordmark reads backwards in your own preview.</p>
+</aside>
+
+<script>
+(function(){
+  var frame = document.getElementById('frame');
+  var body = document.body;
+
+  // ?export -> 1:1, no panel, no guides: the window is then exactly the artwork,
+  // so any 1920x1080 screenshot (or headless --screenshot) is the finished file.
+  if (/(^|[?&])export(=|&|$)/.test(location.search)) {
+    body.classList.add('actual', 'nopanel');
+    body.classList.remove('guides');
+  }
+
+  function fit(){
+    if (body.classList.contains('actual')) { frame.style.setProperty('--s', 1); return; }
+    var s = Math.min((window.innerWidth - 72) / 1920, (window.innerHeight - 72) / 1080);
+    frame.style.setProperty('--s', s);
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  window.addEventListener('keydown', function(e){
+    var k = (e.key || '').toLowerCase();
+    if (k === 'g') { body.classList.toggle('guides'); }
+    else if (k === 'f') { body.classList.toggle('actual'); fit(); }
+    else if (k === 'h') { body.classList.toggle('nopanel'); }
+  });
+})();
+</script>
+
+</body>
+</html>
